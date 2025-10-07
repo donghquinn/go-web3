@@ -782,6 +782,120 @@ tx := web3.NewTransactionParams().
 - **Readability**: Self-documenting code
 - **Consistency**: Standardized values across the library
 
+## 🚀 Go-Blockchain-Helper Integration
+
+This library is enhanced with [`go-blockchain-helper`](https://github.com/donghquinn/go-blockchain-helper), providing advanced blockchain utilities and optimized implementations.
+
+### Enhanced Features
+
+#### Advanced Unit Conversion
+```go
+// Enhanced parsing with error handling
+ethAmount, err := web3.ParseEther("2.5")
+gweiAmount, err := web3.ParseUnits("20", 9) // Custom decimals
+
+// Advanced formatting with precision control
+formatted := web3.FormatEther(weiAmount, 4) // 4 decimal places
+customFormat := web3.FormatUnits(amount, 6) // USDC with 6 decimals
+```
+
+#### Professional ERC20 Token Support
+```go
+// Create typed token instances
+token := web3.NewERC20Token(contractAddr, "USD Coin", "USDC", 6)
+
+// Enhanced encoding with proper error handling
+transferData, err := web3.EncodeERC20Transfer(token, recipient, amount)
+approveData, err := web3.EncodeERC20Approve(token, spender, amount)
+
+// Simplified transaction creation
+tokenTx, err := web3.NewTokenTransfer(
+    web3.USDCMainnet.String(),
+    recipient,
+    amount,
+    web3.ChainMainnet,
+)
+```
+
+#### ERC721 (NFT) Support
+```go
+// Create NFT token instances
+nft := web3.NewERC721Token(contractAddr, "BoredApeYachtClub", "BAYC")
+
+// NFT operations
+transferData, err := web3.EncodeERC721Transfer(nft, from, to, tokenId)
+approveData, err := web3.EncodeERC721Approve(nft, approved, tokenId)
+setApprovalData, err := web3.EncodeERC721SetApprovalForAll(nft, operator, true)
+```
+
+#### Enhanced Transaction Building
+```go
+// Smart transaction creation with automatic estimation
+tx, err := web3.CreateTransactionWithEstimate(
+    recipient,
+    value,
+    data,
+    web3.ChainMainnet,
+)
+
+// Enhanced fee calculation
+fee := web3.CalculateTransactionFee(gasLimit, gasPrice)
+```
+
+#### Advanced Contract Interaction
+```go
+// Enhanced token balance queries
+balance, err := web3.GetTokenBalance(ctx, client, tokenContract, address)
+allowance, err := web3.GetTokenAllowance(ctx, client, tokenContract, owner, spender)
+
+// Advanced ABI encoding with type inference
+abiParams := []web3.ABIParam{{Type: "address"}, {Type: "uint256"}}
+data, err := web3.EncodeFunctionCallAdvanced(signature, abiParams, params)
+```
+
+#### Event Processing
+```go
+// Create event monitor for real-time processing
+monitor := web3.CreateEventMonitor()
+
+// Parse common events
+transferEvent, err := web3.ParseTransferEvent(eventData)
+```
+
+#### Enhanced Address Validation
+```go
+// Comprehensive address validation
+isValid := web3.ValidateAddress(address)
+isZero := web3.IsZeroAddress(address)
+isBurn := web3.IsBurnAddress(address)
+
+// Private key utilities
+address, err := web3.PrivateKeyToAddressHelper(privateKey)
+```
+
+### Benefits of Integration
+
+- **Zero External Dependencies**: `go-blockchain-helper` uses only Go standard library
+- **Enhanced Performance**: Optimized implementations for common operations
+- **Professional Features**: Production-ready ERC20/ERC721 support
+- **Better Error Handling**: Comprehensive error information
+- **Type Safety**: Strongly-typed token and transaction structures
+- **Advanced Utilities**: Event processing, enhanced validation, and more
+
+### Migration from Basic Functions
+
+```go
+// Before: Basic implementations
+weiValue, _ := web3.ToWei("1", web3.Ether)
+balance, _ := client.Eth().GetBalance(ctx, addr, web3.BlockLatest)
+
+// After: Enhanced with go-blockchain-helper
+ethValue, err := web3.ParseEther("1")           // Better parsing
+balance, err := web3.GetTokenBalance(ctx, client, token, addr) // Enhanced queries
+```
+
+The integration maintains full backward compatibility while providing enhanced functionality for professional blockchain development.
+
 ## 🛠️ Utility Functions
 
 ### Wei/Ether Conversion

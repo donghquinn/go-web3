@@ -12,7 +12,7 @@ func typedConstantsExample() {
 	client := web3.NewClient("https://eth-mainnet.alchemyapi.io/v2/YOUR_API_KEY")
 	ctx := context.Background()
 
-	fmt.Println("\n=== Typed Constants Example ===\n")
+	fmt.Printf("\n=== Typed Constants Example ===\n")
 
 	// 1. Using typed block parameters
 	fmt.Println("1. Block Parameters:")
@@ -100,7 +100,7 @@ func typedConstantsExample() {
 			optimal, err := web3.GetOptimalGasPrice(ctx, client, level)
 			if err == nil {
 				gweiPrice, _ := web3.WeiToGwei(optimal)
-				fmt.Printf("   %s: %s Gwei (%.1fx multiplier)\n", 
+				fmt.Printf("   %s: %s Gwei (%.1fx multiplier)\n",
 					getLevelName(level), gweiPrice, level.Multiplier())
 			}
 		}
@@ -111,11 +111,11 @@ func typedConstantsExample() {
 
 	// Simple ETH transfer
 	ethTransfer := web3.NewSimpleTransfer(
-		"0xRecipientAddress", 
-		"0.1", 
+		"0xRecipientAddress",
+		"0.1",
 		web3.ChainMainnet,
 	)
-	fmt.Printf("   ETH Transfer - Gas: %d, Chain: %d\n", 
+	fmt.Printf("   ETH Transfer - Gas: %d, Chain: %d\n",
 		ethTransfer.Gas, ethTransfer.ChainID.Uint64())
 
 	// Token transfer
@@ -127,7 +127,7 @@ func typedConstantsExample() {
 		web3.ChainMainnet,
 	)
 	if err == nil {
-		fmt.Printf("   Token Transfer - Gas: %d, To: %s\n", 
+		fmt.Printf("   Token Transfer - Gas: %d, To: %s\n",
 			tokenTransfer.Gas, tokenTransfer.To)
 	}
 

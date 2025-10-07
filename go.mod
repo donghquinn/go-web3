@@ -2,7 +2,10 @@ module github.com/donghquinn/go-web3
 
 go 1.21
 
-require github.com/ethereum/go-ethereum v1.13.5
+require (
+	github.com/donghquinn/go-blockchain-helper v1.0.1
+	github.com/ethereum/go-ethereum v1.13.5
+)
 
 require (
 	github.com/bits-and-blooms/bitset v1.7.0 // indirect

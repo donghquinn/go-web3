@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 
+	blockchainhelper "github.com/donghquinn/go-blockchain-helper/pkg/web3"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -293,40 +294,36 @@ func RecoverSigner(rawTxHex string) (string, error) {
 }
 
 func EncodeABI(methodSignature string, params ...interface{}) ([]byte, error) {
-	methodID := crypto.Keccak256([]byte(methodSignature))[:4]
+	// Convert params to slice for go-blockchain-helper
+	paramSlice := make([]interface{}, len(params))
+	copy(paramSlice, params)
 	
-	var encodedParams []byte
-	for _, param := range params {
-		switch v := param.(type) {
+	// Create basic ABI params - this is a simplified approach
+	// In a real implementation, you would parse the method signature to determine types
+	abiParams := make([]blockchainhelper.ABIParam, len(params))
+	for i, param := range params {
+		switch param.(type) {
 		case string:
-			if IsAddress(v) {
-				addr := common.HexToAddress(v)
-				paddedAddr := make([]byte, 32)
-				copy(paddedAddr[12:], addr.Bytes())
-				encodedParams = append(encodedParams, paddedAddr...)
+			if IsAddress(param.(string)) {
+				abiParams[i] = blockchainhelper.ABIParam{Type: "address"}
 			} else {
-				return nil, fmt.Errorf("unsupported string parameter: %v", v)
+				abiParams[i] = blockchainhelper.ABIParam{Type: "string"}
 			}
 		case *big.Int:
-			padded := make([]byte, 32)
-			v.FillBytes(padded)
-			encodedParams = append(encodedParams, padded...)
+			abiParams[i] = blockchainhelper.ABIParam{Type: "uint256"}
 		case uint64:
-			bigInt := big.NewInt(int64(v))
-			padded := make([]byte, 32)
-			bigInt.FillBytes(padded)
-			encodedParams = append(encodedParams, padded...)
+			abiParams[i] = blockchainhelper.ABIParam{Type: "uint64"}
 		case []byte:
-			if len(v) != 32 {
-				return nil, fmt.Errorf("byte array must be 32 bytes")
-			}
-			encodedParams = append(encodedParams, v...)
+			abiParams[i] = blockchainhelper.ABIParam{Type: "bytes"}
+		case bool:
+			abiParams[i] = blockchainhelper.ABIParam{Type: "bool"}
 		default:
-			return nil, fmt.Errorf("unsupported parameter type: %T", v)
+			return nil, fmt.Errorf("unsupported parameter type: %T", param)
 		}
 	}
 	
-	return append(methodID, encodedParams...), nil
+	// Use go-blockchain-helper for ABI encoding
+	return blockchainhelper.EncodeFunctionCall(methodSignature, abiParams, paramSlice)
 }
 
 func RandomNonce() uint64 {

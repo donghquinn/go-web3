@@ -74,7 +74,7 @@ func basicExample() {
 func transactionExample() {
 	client := web3.NewClient("https://eth-mainnet.alchemyapi.io/v2/YOUR_API_KEY")
 
-	fmt.Println("\n=== Go-Web3 Transaction Examples ===\n")
+	fmt.Printf("\n=== Go-Web3 Transaction Examples ===\n")
 
 	// 1. Generate a new wallet
 	fmt.Println("1. Creating a new wallet...")
@@ -152,4 +152,7 @@ func main() {
 
 	// Run typed constants example
 	typedConstantsExample()
+
+	// Run blockchain-helper integration example
+	blockchainHelperExample()
 }
