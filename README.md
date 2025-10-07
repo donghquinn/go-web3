@@ -5,6 +5,7 @@ A comprehensive Go library for interacting with Ethereum blockchain through JSON
 ## 🚀 Features
 
 - **Complete Ethereum JSON-RPC Implementation**: All major eth_* methods supported
+- **Pending Transaction Support**: Monitor mempool, get pending transactions by account
 - **Context-Aware Operations**: Proper context handling for timeouts and cancellation
 - **Type-Safe Structures**: Strongly-typed transaction, block, and receipt objects
 - **Web3.js-Like API**: Familiar method names and usage patterns for JavaScript developers
@@ -238,6 +239,70 @@ if err != nil {
     log.Fatal(err)
 }
 fmt.Printf("Transaction sent: %s\n", txHash)
+```
+
+#### 🔄 Pending Transaction Operations
+
+##### Get All Pending Transactions
+```go
+// Get all pending transactions from mempool
+pendingTxs, err := client.Eth().GetPendingTransactions(ctx)
+if err != nil {
+    log.Fatal(err)
+}
+
+fmt.Printf("Found %d pending transactions\n", len(pendingTxs))
+for _, tx := range pendingTxs {
+    fmt.Printf("Hash: %s, From: %s, To: %s\n", tx.Hash, tx.From, tx.To)
+    
+    // Convert gas price to Gwei for readability
+    if tx.GasPrice != "" {
+        gasPriceWei, _ := web3.FromHex(tx.GasPrice)
+        gasPriceGwei, _ := web3.WeiToGwei(gasPriceWei)
+        fmt.Printf("Gas Price: %s Gwei\n", gasPriceGwei)
+    }
+}
+```
+
+##### Get Pending Transaction Count
+```go
+// Get total number of pending transactions
+count, err := client.Eth().GetPendingTransactionCount(ctx)
+if err != nil {
+    log.Fatal(err)
+}
+fmt.Printf("Pending transactions in mempool: %d\n", count)
+```
+
+##### Get Account Pending Transactions
+```go
+// Get pending transactions for a specific account
+address := "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"
+accountTxs, err := client.Eth().GetAccountPendingTransactions(ctx, address)
+if err != nil {
+    log.Fatal(err)
+}
+
+fmt.Printf("Found %d pending transactions for %s\n", len(accountTxs), address)
+for _, tx := range accountTxs {
+    fmt.Printf("Hash: %s, Value: %s\n", tx.Hash, tx.Value)
+}
+```
+
+##### Check if Transaction is Pending
+```go
+// Check if a specific transaction hash is in the pending pool
+txHash := "0xabcdef1234567890..."
+isPending, err := client.Eth().IsPendingTransaction(ctx, txHash)
+if err != nil {
+    log.Fatal(err)
+}
+
+if isPending {
+    fmt.Printf("Transaction %s is still pending\n", txHash)
+} else {
+    fmt.Printf("Transaction %s is not in pending pool\n", txHash)
+}
 ```
 
 #### ⛽ Gas Operations
