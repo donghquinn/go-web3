@@ -243,3 +243,101 @@ func (e *Eth) Call(ctx context.Context, callObj map[string]interface{}, blockNum
 
 	return data, nil
 }
+
+// GetPendingTransactions returns pending transactions from the mempool
+func (e *Eth) GetPendingTransactions(ctx context.Context) ([]*Transaction, error) {
+	// Get the pending block with full transaction details
+	block, err := e.GetBlockByNumber(ctx, BlockPending, true)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Convert interface{} transactions to Transaction structs
+	var pendingTxs []*Transaction
+	for _, txInterface := range block.Transactions {
+		if txData, ok := txInterface.(map[string]interface{}); ok {
+			tx := &Transaction{}
+			
+			// Parse transaction fields with proper error handling
+			if hash, ok := txData["hash"].(string); ok {
+				tx.Hash = hash
+			}
+			if nonce, ok := txData["nonce"].(string); ok {
+				tx.Nonce = nonce
+			}
+			if blockHash, ok := txData["blockHash"].(string); ok {
+				tx.BlockHash = blockHash
+			}
+			if blockNumber, ok := txData["blockNumber"].(string); ok {
+				tx.BlockNumber = blockNumber
+			}
+			if transactionIndex, ok := txData["transactionIndex"].(string); ok {
+				tx.TransactionIndex = transactionIndex
+			}
+			if from, ok := txData["from"].(string); ok {
+				tx.From = from
+			}
+			if to, ok := txData["to"].(string); ok {
+				tx.To = to
+			}
+			if value, ok := txData["value"].(string); ok {
+				tx.Value = value
+			}
+			if gas, ok := txData["gas"].(string); ok {
+				tx.Gas = gas
+			}
+			if gasPrice, ok := txData["gasPrice"].(string); ok {
+				tx.GasPrice = gasPrice
+			}
+			if input, ok := txData["input"].(string); ok {
+				tx.Input = input
+			}
+			
+			pendingTxs = append(pendingTxs, tx)
+		}
+	}
+	
+	return pendingTxs, nil
+}
+
+// GetPendingTransactionCount returns the number of pending transactions
+func (e *Eth) GetPendingTransactionCount(ctx context.Context) (int, error) {
+	pendingTxs, err := e.GetPendingTransactions(ctx)
+	if err != nil {
+		return 0, err
+	}
+	return len(pendingTxs), nil
+}
+
+// GetAccountPendingTransactions returns pending transactions for a specific account
+func (e *Eth) GetAccountPendingTransactions(ctx context.Context, address string) ([]*Transaction, error) {
+	allPendingTxs, err := e.GetPendingTransactions(ctx)
+	if err != nil {
+		return nil, err
+	}
+	
+	var accountTxs []*Transaction
+	for _, tx := range allPendingTxs {
+		if tx.From == address || tx.To == address {
+			accountTxs = append(accountTxs, tx)
+		}
+	}
+	
+	return accountTxs, nil
+}
+
+// IsPendingTransaction checks if a transaction hash is in the pending pool
+func (e *Eth) IsPendingTransaction(ctx context.Context, txHash string) (bool, error) {
+	pendingTxs, err := e.GetPendingTransactions(ctx)
+	if err != nil {
+		return false, err
+	}
+	
+	for _, tx := range pendingTxs {
+		if tx.Hash == txHash {
+			return true, nil
+		}
+	}
+	
+	return false, nil
+}
