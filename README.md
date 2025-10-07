@@ -287,6 +287,294 @@ if err != nil {
 fmt.Printf("Contract call result: %s\n", result)
 ```
 
+## 💰 Transaction Management
+
+### Creating and Managing Wallets
+
+#### Generate New Wallet
+```go
+// Create a new random wallet
+wallet, err := web3.CreateWallet(client)
+if err != nil {
+    log.Fatal(err)
+}
+
+fmt.Printf("Address: %s\n", wallet.GetAddress())
+fmt.Printf("Private Key: %s\n", wallet.GetPrivateKey()) // Keep this secure!
+```
+
+#### Load Existing Wallet
+```go
+// Load wallet from private key
+privateKey := "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+wallet, err := web3.NewWallet(privateKey, client)
+if err != nil {
+    log.Fatal(err)
+}
+
+// Check wallet balance
+balance, err := wallet.GetBalance(ctx)
+if err != nil {
+    log.Fatal(err)
+}
+
+balanceEth, _ := web3.FromWei(balance, "ether")
+fmt.Printf("Balance: %s ETH\n", balanceEth)
+```
+
+### Building and Signing Transactions
+
+#### Legacy Transaction (Pre-EIP-1559)
+```go
+// Create transaction parameters
+txParams := web3.NewTransactionParams().
+    SetTo("0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045").
+    SetValueInEther("0.1").           // Send 0.1 ETH
+    SetGas(21000).                    // Standard transfer gas limit
+    SetGasPriceInGwei("20").          // 20 Gwei gas price
+    SetNonce(42).                     // Transaction nonce
+    SetChainID(big.NewInt(1))         // Mainnet chain ID
+
+// Sign the transaction
+privateKey, err := web3.PrivateKeyFromHex("0x...")
+if err != nil {
+    log.Fatal(err)
+}
+
+signedTx, err := web3.SignTransaction(txParams, privateKey)
+if err != nil {
+    log.Fatal(err)
+}
+
+fmt.Printf("Transaction Hash: %s\n", signedTx.Hash)
+fmt.Printf("Raw Transaction: %s\n", signedTx.Raw)
+```
+
+#### EIP-1559 Transaction (Type 2)
+```go
+// Create EIP-1559 transaction parameters
+eip1559Params := web3.NewEIP1559TransactionParams()
+eip1559Params.To = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"
+eip1559Params.Value, _ = web3.ToWei("0.05", "ether")
+eip1559Params.Gas = 21000
+eip1559Params.MaxFeePerGas, _ = web3.ToWei("30", "gwei")         // Maximum fee per gas
+eip1559Params.MaxPriorityFeePerGas, _ = web3.ToWei("2", "gwei")  // Tip to miners
+eip1559Params.Nonce = 43
+eip1559Params.ChainID = big.NewInt(1)
+
+// Sign EIP-1559 transaction
+signedTx, err := web3.SignEIP1559Transaction(eip1559Params, privateKey)
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+### High-Level Transaction Methods
+
+#### Send Ether
+```go
+// Send ETH using wallet (handles nonce, gas estimation automatically)
+result, err := wallet.SendEther(ctx, "0xRECIPIENT_ADDRESS", "1.5")
+if err != nil {
+    log.Fatal(err)
+}
+
+fmt.Printf("Transaction sent: %s\n", result.TransactionHash)
+fmt.Printf("From: %s\n", result.From)
+fmt.Printf("To: %s\n", result.To)
+```
+
+#### Send with Custom Options
+```go
+// Send with custom gas settings
+transferOpts := &web3.TransferOptions{
+    To:       "0xRECIPIENT_ADDRESS",
+    Value:    web3.ToWei("2.0", "ether"),
+    GasLimit: 25000,                           // Custom gas limit
+    GasPrice: web3.ToWei("25", "gwei"),        // Custom gas price
+    Data:     []byte("Hello Ethereum!"),       // Optional data
+}
+
+result, err := wallet.SendTransaction(ctx, transferOpts)
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+#### Send EIP-1559 Transaction
+```go
+maxFee, _ := web3.ToWei("50", "gwei")
+priorityFee, _ := web3.ToWei("3", "gwei")
+
+result, err := wallet.SendEIP1559Transaction(ctx, transferOpts, maxFee, priorityFee)
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+### Smart Contract Interactions
+
+#### Contract Method Calls (Read-Only)
+```go
+// Call a contract method (no transaction, no gas cost)
+contractAddress := "0xA0b86a33E6417c48cd7a94Ca95e70aD2c51e74f7"
+
+// Example: balanceOf(address) call
+balanceOfData, err := web3.EncodeABI("balanceOf(address)", wallet.GetAddress())
+if err != nil {
+    log.Fatal(err)
+}
+
+result, err := wallet.CallContract(ctx, contractAddress, balanceOfData)
+if err != nil {
+    log.Fatal(err)
+}
+fmt.Printf("Token balance (hex): %s\n", result)
+```
+
+#### Contract Transactions (State-Changing)
+```go
+// Example: ERC-20 transfer
+recipientAddress := "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"
+transferAmount := web3.ToWei("100", "ether") // 100 tokens (assuming 18 decimals)
+
+// Encode transfer(address,uint256) function call
+transferData, err := web3.EncodeABI("transfer(address,uint256)", recipientAddress, transferAmount)
+if err != nil {
+    log.Fatal(err)
+}
+
+// Send contract transaction
+result, err := wallet.SendContractTransaction(ctx, contractAddress, transferData, big.NewInt(0))
+if err != nil {
+    log.Fatal(err)
+}
+
+fmt.Printf("Token transfer transaction: %s\n", result.TransactionHash)
+```
+
+#### Contract Deployment
+```go
+// Deploy a smart contract
+contractBytecode := []byte{0x60, 0x80, 0x60, 0x40, /* ... contract bytecode ... */}
+constructorArgs := []byte{/* encoded constructor parameters */}
+
+result, err := wallet.DeployContract(ctx, contractBytecode, constructorArgs, 500000, nil)
+if err != nil {
+    log.Fatal(err)
+}
+
+fmt.Printf("Contract deployment transaction: %s\n", result.TransactionHash)
+
+// Wait for deployment confirmation
+receipt, err := wallet.WaitForTransaction(ctx, result.TransactionHash)
+if err != nil {
+    log.Fatal(err)
+}
+
+if receipt.ContractAddress != "" {
+    fmt.Printf("Contract deployed at: %s\n", receipt.ContractAddress)
+}
+```
+
+### Transaction Monitoring
+
+#### Wait for Transaction Confirmation
+```go
+// Wait for transaction to be mined
+ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+defer cancel()
+
+receipt, err := wallet.WaitForTransaction(ctx, txHash)
+if err != nil {
+    log.Fatal(err)
+}
+
+// Check transaction status
+if receipt.Status == "0x1" {
+    fmt.Println("✅ Transaction successful!")
+    fmt.Printf("Gas used: %s\n", receipt.GasUsed)
+    fmt.Printf("Block number: %s\n", receipt.BlockNumber)
+} else {
+    fmt.Println("❌ Transaction failed!")
+}
+```
+
+### Advanced Transaction Features
+
+#### Batch Operations
+```go
+// Send multiple transactions concurrently
+addresses := []string{
+    "0xRecipient1...",
+    "0xRecipient2...",
+    "0xRecipient3...",
+}
+
+type TxResult struct {
+    Address string
+    TxHash  string
+    Error   error
+}
+
+results := make(chan TxResult, len(addresses))
+
+for _, addr := range addresses {
+    go func(recipient string) {
+        result, err := wallet.SendEther(ctx, recipient, "0.01")
+        if err != nil {
+            results <- TxResult{recipient, "", err}
+            return
+        }
+        results <- TxResult{recipient, result.TransactionHash, nil}
+    }(addr)
+}
+
+// Collect results
+for i := 0; i < len(addresses); i++ {
+    result := <-results
+    if result.Error != nil {
+        fmt.Printf("❌ Failed to send to %s: %v\n", result.Address, result.Error)
+    } else {
+        fmt.Printf("✅ Sent to %s: %s\n", result.Address, result.TxHash)
+    }
+}
+```
+
+#### Gas Estimation and Optimization
+```go
+// Get optimal gas price with buffer
+currentGas, err := client.Eth().GetGasPrice(ctx)
+if err != nil {
+    log.Fatal(err)
+}
+
+// Add 10% buffer for faster confirmation
+buffer := new(big.Int).Div(currentGas, big.NewInt(10))
+optimalGas := new(big.Int).Add(currentGas, buffer)
+
+fmt.Printf("Optimal gas price: %s Gwei\n", 
+    web3.FromWei(optimalGas, "gwei"))
+
+// Use in transaction
+txParams := web3.NewTransactionParams().
+    SetTo("0x...").
+    SetValueInEther("1.0").
+    SetGasPrice(optimalGas)
+```
+
+#### Transaction Recovery
+```go
+// Recover the signer address from a raw transaction
+rawTxHex := "0xf86c808504a817c800825208940x..."
+signerAddress, err := web3.RecoverSigner(rawTxHex)
+if err != nil {
+    log.Fatal(err)
+}
+
+fmt.Printf("Transaction was signed by: %s\n", signerAddress)
+```
+
 ## 🛠️ Utility Functions
 
 ### Wei/Ether Conversion
