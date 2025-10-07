@@ -74,7 +74,7 @@ func (w *Wallet) GetBalance(ctx context.Context) (*big.Int, error) {
 }
 
 func (w *Wallet) GetNonce(ctx context.Context) (uint64, error) {
-	return w.client.Eth().GetTransactionCount(ctx, w.address, "pending")
+	return w.client.Eth().GetTransactionCount(ctx, w.address, BlockPending)
 }
 
 func (w *Wallet) SendTransaction(ctx context.Context, opts *TransferOptions) (*SendTransactionResult, error) {
@@ -111,7 +111,7 @@ func (w *Wallet) SendTransaction(ctx context.Context, opts *TransferOptions) (*S
 		SetGasPrice(opts.GasPrice).
 		SetData(opts.Data).
 		SetNonce(nonce).
-		SetChainID(big.NewInt(1))
+		SetChainID(ChainMainnet)
 
 	signedTx, err := SignTransaction(txParams, w.privateKey)
 	if err != nil {
@@ -132,7 +132,7 @@ func (w *Wallet) SendTransaction(ctx context.Context, opts *TransferOptions) (*S
 }
 
 func (w *Wallet) SendEther(ctx context.Context, to string, amountInEther string) (*SendTransactionResult, error) {
-	value, err := ToWei(amountInEther, "ether")
+	value, err := ToWei(amountInEther, Ether)
 	if err != nil {
 		return nil, fmt.Errorf("invalid ether amount: %w", err)
 	}
@@ -177,7 +177,7 @@ func (w *Wallet) SendEIP1559Transaction(ctx context.Context, opts *TransferOptio
 	txParams.MaxPriorityFeePerGas = maxPriorityFeePerGas
 	txParams.Data = opts.Data
 	txParams.Nonce = nonce
-	txParams.ChainID = big.NewInt(1)
+	txParams.ChainID = ChainMainnet.BigInt()
 
 	signedTx, err := SignEIP1559Transaction(txParams, w.privateKey)
 	if err != nil {
@@ -204,7 +204,7 @@ func (w *Wallet) CallContract(ctx context.Context, contractAddress string, metho
 		"data": fmt.Sprintf("0x%x", methodData),
 	}
 
-	return w.client.Eth().Call(ctx, callObj, "latest")
+	return w.client.Eth().Call(ctx, callObj, BlockLatest)
 }
 
 func (w *Wallet) SendContractTransaction(ctx context.Context, contractAddress string, methodData []byte, value *big.Int) (*SendTransactionResult, error) {

@@ -45,7 +45,7 @@ func NewTransactionParams() *TransactionParams {
 	return &TransactionParams{
 		Value:   big.NewInt(0),
 		Data:    []byte{},
-		ChainID: big.NewInt(1), // Mainnet by default
+		ChainID: ChainMainnet.BigInt(),
 	}
 }
 
@@ -53,7 +53,7 @@ func NewEIP1559TransactionParams() *EIP1559TransactionParams {
 	return &EIP1559TransactionParams{
 		Value:   big.NewInt(0),
 		Data:    []byte{},
-		ChainID: big.NewInt(1), // Mainnet by default
+		ChainID: ChainMainnet.BigInt(),
 	}
 }
 
@@ -74,7 +74,7 @@ func (tp *TransactionParams) SetValueInWei(wei string) *TransactionParams {
 }
 
 func (tp *TransactionParams) SetValueInEther(eth string) *TransactionParams {
-	value, _ := ToWei(eth, "ether")
+	value, _ := ToWei(eth, Ether)
 	tp.Value = value
 	return tp
 }
@@ -90,7 +90,7 @@ func (tp *TransactionParams) SetGasPrice(gasPrice *big.Int) *TransactionParams {
 }
 
 func (tp *TransactionParams) SetGasPriceInGwei(gwei string) *TransactionParams {
-	gasPrice, _ := ToWei(gwei, "gwei")
+	gasPrice, _ := ToWei(gwei, Gwei)
 	tp.GasPrice = gasPrice
 	return tp
 }
@@ -114,8 +114,8 @@ func (tp *TransactionParams) SetNonce(nonce uint64) *TransactionParams {
 	return tp
 }
 
-func (tp *TransactionParams) SetChainID(chainID *big.Int) *TransactionParams {
-	tp.ChainID = chainID
+func (tp *TransactionParams) SetChainID(chainID ChainID) *TransactionParams {
+	tp.ChainID = chainID.BigInt()
 	return tp
 }
 

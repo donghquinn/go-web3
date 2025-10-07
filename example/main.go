@@ -27,27 +27,27 @@ func basicExample() {
 	if err != nil {
 		log.Printf("Error getting gas price: %v", err)
 	} else {
-		gasPriceGwei, _ := web3.FromWei(gasPrice, "gwei")
+		gasPriceGwei, _ := web3.FromWei(gasPrice, web3.Gwei)
 		fmt.Printf("Current gas price: %s Gwei\n", gasPriceGwei)
 	}
 
 	address := "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"
-	balance, err := client.Eth().GetBalance(ctx, address, "latest")
+	balance, err := client.Eth().GetBalance(ctx, address, web3.BlockLatest)
 	if err != nil {
 		log.Printf("Error getting balance: %v", err)
 	} else {
-		balanceEth, _ := web3.FromWei(balance, "ether")
+		balanceEth, _ := web3.FromWei(balance, web3.Ether)
 		fmt.Printf("Balance of %s: %s ETH\n", address, balanceEth)
 	}
 
-	nonce, err := client.Eth().GetTransactionCount(ctx, address, "latest")
+	nonce, err := client.Eth().GetTransactionCount(ctx, address, web3.BlockLatest)
 	if err != nil {
 		log.Printf("Error getting transaction count: %v", err)
 	} else {
 		fmt.Printf("Transaction count (nonce) for %s: %d\n", address, nonce)
 	}
 
-	block, err := client.Eth().GetBlockByNumber(ctx, "latest", false)
+	block, err := client.Eth().GetBlockByNumber(ctx, web3.BlockLatest, false)
 	if err != nil {
 		log.Printf("Error getting latest block: %v", err)
 	} else {
@@ -58,10 +58,10 @@ func basicExample() {
 
 	fmt.Println("\n=== Utility Functions Example ===")
 
-	weiValue, _ := web3.ToWei("1", "ether")
+	weiValue, _ := web3.ToWei("1", web3.Ether)
 	fmt.Printf("1 ETH in Wei: %s\n", weiValue.String())
 
-	ethValue, _ := web3.FromWei(weiValue, "ether")
+	ethValue, _ := web3.FromWei(weiValue, web3.Ether)
 	fmt.Printf("Wei back to ETH: %s\n", ethValue)
 
 	hexValue := web3.ToHex(12345)
@@ -91,10 +91,10 @@ func transactionExample() {
 	txParams := web3.NewTransactionParams().
 		SetTo("0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045").
 		SetValueInEther("0.1").
-		SetGas(21000).
+		SetGas(web3.GasLimitTransfer.Uint64()).
 		SetGasPriceInGwei("20").
 		SetNonce(0).
-		SetChainID(big.NewInt(1)) // Mainnet
+		SetChainID(web3.ChainMainnet)
 
 	privateKey, _ := web3.GeneratePrivateKey()
 	signedTx, err := web3.SignTransaction(txParams, privateKey)
@@ -109,12 +109,12 @@ func transactionExample() {
 	fmt.Println("\n3. Building EIP-1559 transaction...")
 	eip1559Params := web3.NewEIP1559TransactionParams()
 	eip1559Params.To = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"
-	eip1559Params.Value, _ = web3.ToWei("0.05", "ether")
-	eip1559Params.Gas = 21000
-	eip1559Params.MaxFeePerGas, _ = web3.ToWei("30", "gwei")
-	eip1559Params.MaxPriorityFeePerGas, _ = web3.ToWei("2", "gwei")
+	eip1559Params.Value, _ = web3.ToWei("0.05", web3.Ether)
+	eip1559Params.Gas = web3.GasLimitTransfer.Uint64()
+	eip1559Params.MaxFeePerGas, _ = web3.ToWei("30", web3.Gwei)
+	eip1559Params.MaxPriorityFeePerGas, _ = web3.ToWei("2", web3.Gwei)
 	eip1559Params.Nonce = 1
-	eip1559Params.ChainID = big.NewInt(1)
+	eip1559Params.ChainID = web3.ChainMainnet.BigInt()
 
 	signedEIP1559, err := web3.SignEIP1559Transaction(eip1559Params, privateKey)
 	if err != nil {
@@ -149,4 +149,7 @@ func main() {
 
 	// Run transaction examples
 	transactionExample()
+
+	// Run typed constants example
+	typedConstantsExample()
 }

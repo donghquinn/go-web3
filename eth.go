@@ -15,12 +15,12 @@ func (c *Client) Eth() *Eth {
 	return &Eth{client: c}
 }
 
-func (e *Eth) GetBalance(ctx context.Context, address string, blockNumber string) (*big.Int, error) {
+func (e *Eth) GetBalance(ctx context.Context, address string, blockNumber BlockParameter) (*big.Int, error) {
 	if blockNumber == "" {
-		blockNumber = "latest"
+		blockNumber = BlockLatest
 	}
 	
-	result, err := e.client.Call(ctx, "eth_getBalance", []interface{}{address, blockNumber})
+	result, err := e.client.Call(ctx, EthGetBalance.String(), []interface{}{address, blockNumber.String()})
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +36,7 @@ func (e *Eth) GetBalance(ctx context.Context, address string, blockNumber string
 }
 
 func (e *Eth) GetBlockNumber(ctx context.Context) (uint64, error) {
-	result, err := e.client.Call(ctx, "eth_blockNumber", []interface{}{})
+	result, err := e.client.Call(ctx, EthGetBlockNumber.String(), []interface{}{})
 	if err != nil {
 		return 0, err
 	}
@@ -52,7 +52,7 @@ func (e *Eth) GetBlockNumber(ctx context.Context) (uint64, error) {
 }
 
 func (e *Eth) GetGasPrice(ctx context.Context) (*big.Int, error) {
-	result, err := e.client.Call(ctx, "eth_gasPrice", []interface{}{})
+	result, err := e.client.Call(ctx, EthGetGasPrice.String(), []interface{}{})
 	if err != nil {
 		return nil, err
 	}
@@ -67,12 +67,12 @@ func (e *Eth) GetGasPrice(ctx context.Context) (*big.Int, error) {
 	return gasPrice, nil
 }
 
-func (e *Eth) GetTransactionCount(ctx context.Context, address string, blockNumber string) (uint64, error) {
+func (e *Eth) GetTransactionCount(ctx context.Context, address string, blockNumber BlockParameter) (uint64, error) {
 	if blockNumber == "" {
-		blockNumber = "latest"
+		blockNumber = BlockLatest
 	}
 	
-	result, err := e.client.Call(ctx, "eth_getTransactionCount", []interface{}{address, blockNumber})
+	result, err := e.client.Call(ctx, EthGetTransactionCount.String(), []interface{}{address, blockNumber.String()})
 	if err != nil {
 		return 0, err
 	}
@@ -109,12 +109,12 @@ type Block struct {
 	Uncles           []string      `json:"uncles"`
 }
 
-func (e *Eth) GetBlockByNumber(ctx context.Context, blockNumber string, fullTransactions bool) (*Block, error) {
+func (e *Eth) GetBlockByNumber(ctx context.Context, blockNumber BlockParameter, fullTransactions bool) (*Block, error) {
 	if blockNumber == "" {
-		blockNumber = "latest"
+		blockNumber = BlockLatest
 	}
 	
-	result, err := e.client.Call(ctx, "eth_getBlockByNumber", []interface{}{blockNumber, fullTransactions})
+	result, err := e.client.Call(ctx, EthGetBlockByNumber.String(), []interface{}{blockNumber.String(), fullTransactions})
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +128,7 @@ func (e *Eth) GetBlockByNumber(ctx context.Context, blockNumber string, fullTran
 }
 
 func (e *Eth) GetBlockByHash(ctx context.Context, blockHash string, fullTransactions bool) (*Block, error) {
-	result, err := e.client.Call(ctx, "eth_getBlockByHash", []interface{}{blockHash, fullTransactions})
+	result, err := e.client.Call(ctx, EthGetBlockByHash.String(), []interface{}{blockHash, fullTransactions})
 	if err != nil {
 		return nil, err
 	}
@@ -156,7 +156,7 @@ type Transaction struct {
 }
 
 func (e *Eth) GetTransactionByHash(ctx context.Context, txHash string) (*Transaction, error) {
-	result, err := e.client.Call(ctx, "eth_getTransactionByHash", []interface{}{txHash})
+	result, err := e.client.Call(ctx, EthGetTransactionByHash.String(), []interface{}{txHash})
 	if err != nil {
 		return nil, err
 	}
@@ -183,7 +183,7 @@ type TransactionReceipt struct {
 }
 
 func (e *Eth) GetTransactionReceipt(ctx context.Context, txHash string) (*TransactionReceipt, error) {
-	result, err := e.client.Call(ctx, "eth_getTransactionReceipt", []interface{}{txHash})
+	result, err := e.client.Call(ctx, EthGetTransactionReceipt.String(), []interface{}{txHash})
 	if err != nil {
 		return nil, err
 	}
@@ -197,7 +197,7 @@ func (e *Eth) GetTransactionReceipt(ctx context.Context, txHash string) (*Transa
 }
 
 func (e *Eth) SendRawTransaction(ctx context.Context, signedTx string) (string, error) {
-	result, err := e.client.Call(ctx, "eth_sendRawTransaction", []interface{}{signedTx})
+	result, err := e.client.Call(ctx, EthSendRawTransaction.String(), []interface{}{signedTx})
 	if err != nil {
 		return "", err
 	}
@@ -211,7 +211,7 @@ func (e *Eth) SendRawTransaction(ctx context.Context, signedTx string) (string, 
 }
 
 func (e *Eth) EstimateGas(ctx context.Context, tx map[string]interface{}) (uint64, error) {
-	result, err := e.client.Call(ctx, "eth_estimateGas", []interface{}{tx})
+	result, err := e.client.Call(ctx, EthEstimateGas.String(), []interface{}{tx})
 	if err != nil {
 		return 0, err
 	}
@@ -226,12 +226,12 @@ func (e *Eth) EstimateGas(ctx context.Context, tx map[string]interface{}) (uint6
 	return gasEstimate.Uint64(), nil
 }
 
-func (e *Eth) Call(ctx context.Context, callObj map[string]interface{}, blockNumber string) (string, error) {
+func (e *Eth) Call(ctx context.Context, callObj map[string]interface{}, blockNumber BlockParameter) (string, error) {
 	if blockNumber == "" {
-		blockNumber = "latest"
+		blockNumber = BlockLatest
 	}
 	
-	result, err := e.client.Call(ctx, "eth_call", []interface{}{callObj, blockNumber})
+	result, err := e.client.Call(ctx, EthCall.String(), []interface{}{callObj, blockNumber.String()})
 	if err != nil {
 		return "", err
 	}

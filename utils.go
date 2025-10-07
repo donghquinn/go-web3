@@ -7,35 +7,35 @@ import (
 	"strings"
 )
 
-func ToWei(value string, unit string) (*big.Int, error) {
+func ToWei(value string, unit EtherUnit) (*big.Int, error) {
 	val, ok := new(big.Float).SetString(value)
 	if !ok {
 		return nil, fmt.Errorf("invalid value: %s", value)
 	}
 
 	var multiplier *big.Int
-	switch strings.ToLower(unit) {
-	case "wei":
+	switch unit {
+	case Wei:
 		multiplier = big.NewInt(1)
-	case "kwei", "babbage", "femtoether":
+	case Kwei, Babbage, Femtoether:
 		multiplier = big.NewInt(1e3)
-	case "mwei", "lovelace", "picoether":
+	case Mwei, Lovelace, Picoether:
 		multiplier = big.NewInt(1e6)
-	case "gwei", "shannon", "nanoether", "nano":
+	case Gwei, Shannon, Nanoether, Nano:
 		multiplier = big.NewInt(1e9)
-	case "szabo", "microether", "micro":
+	case Szabo, Microether, Micro:
 		multiplier = big.NewInt(1e12)
-	case "finney", "milliether", "milli":
+	case Finney, Milliether, Milli:
 		multiplier = big.NewInt(1e15)
-	case "ether", "eth":
+	case Ether, EthUnit:
 		multiplier = new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
-	case "kether", "grand":
+	case Kether, Grand:
 		multiplier = new(big.Int).Exp(big.NewInt(10), big.NewInt(21), nil)
-	case "mether":
+	case Mether:
 		multiplier = new(big.Int).Exp(big.NewInt(10), big.NewInt(24), nil)
-	case "gether":
+	case Gether:
 		multiplier = new(big.Int).Exp(big.NewInt(10), big.NewInt(27), nil)
-	case "tether":
+	case Tether:
 		multiplier = new(big.Int).Exp(big.NewInt(10), big.NewInt(30), nil)
 	default:
 		return nil, fmt.Errorf("unknown unit: %s", unit)
@@ -46,34 +46,34 @@ func ToWei(value string, unit string) (*big.Int, error) {
 	return wei, nil
 }
 
-func FromWei(wei *big.Int, unit string) (string, error) {
+func FromWei(wei *big.Int, unit EtherUnit) (string, error) {
 	if wei == nil {
 		return "0", nil
 	}
 
 	var divisor *big.Int
-	switch strings.ToLower(unit) {
-	case "wei":
+	switch unit {
+	case Wei:
 		divisor = big.NewInt(1)
-	case "kwei", "babbage", "femtoether":
+	case Kwei, Babbage, Femtoether:
 		divisor = big.NewInt(1e3)
-	case "mwei", "lovelace", "picoether":
+	case Mwei, Lovelace, Picoether:
 		divisor = big.NewInt(1e6)
-	case "gwei", "shannon", "nanoether", "nano":
+	case Gwei, Shannon, Nanoether, Nano:
 		divisor = big.NewInt(1e9)
-	case "szabo", "microether", "micro":
+	case Szabo, Microether, Micro:
 		divisor = big.NewInt(1e12)
-	case "finney", "milliether", "milli":
+	case Finney, Milliether, Milli:
 		divisor = big.NewInt(1e15)
-	case "ether", "eth":
+	case Ether, EthUnit:
 		divisor = new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
-	case "kether", "grand":
+	case Kether, Grand:
 		divisor = new(big.Int).Exp(big.NewInt(10), big.NewInt(21), nil)
-	case "mether":
+	case Mether:
 		divisor = new(big.Int).Exp(big.NewInt(10), big.NewInt(24), nil)
-	case "gether":
+	case Gether:
 		divisor = new(big.Int).Exp(big.NewInt(10), big.NewInt(27), nil)
-	case "tether":
+	case Tether:
 		divisor = new(big.Int).Exp(big.NewInt(10), big.NewInt(30), nil)
 	default:
 		return "", fmt.Errorf("unknown unit: %s", unit)

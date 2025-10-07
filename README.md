@@ -575,6 +575,213 @@ if err != nil {
 fmt.Printf("Transaction was signed by: %s\n", signerAddress)
 ```
 
+## 🎯 Typed Constants & Enums
+
+The library eliminates hardcoded strings with comprehensive typed constants for better type safety and IDE support.
+
+### Block Parameters
+
+Use typed block parameters instead of strings:
+
+```go
+// Instead of hardcoded strings
+balance, err := client.Eth().GetBalance(ctx, address, "latest")
+
+// Use typed constants
+balance, err := client.Eth().GetBalance(ctx, address, web3.BlockLatest)
+balance, err := client.Eth().GetBalance(ctx, address, web3.BlockPending)
+balance, err := client.Eth().GetBalance(ctx, address, web3.BlockEarliest)
+
+// For specific block numbers
+blockParam := web3.BlockNumber(18500000)
+balance, err := client.Eth().GetBalance(ctx, address, blockParam)
+```
+
+### Ether Units
+
+Type-safe unit conversions:
+
+```go
+// Instead of string units
+weiValue, _ := web3.ToWei("1", "ether")
+gweiValue, _ := web3.ToWei("20", "gwei")
+
+// Use typed units
+weiValue, _ := web3.ToWei("1", web3.Ether)
+gweiValue, _ := web3.ToWei("20", web3.Gwei)
+
+// Helper functions
+ethWei, _ := web3.EtherToWei("2.5")
+gweiWei, _ := web3.GweiToWei("30")
+
+ethDisplay, _ := web3.WeiToEther(ethWei)
+gweiDisplay, _ := web3.WeiToGwei(gweiWei)
+```
+
+Available units: `Wei`, `Kwei`, `Mwei`, `Gwei`, `Szabo`, `Finney`, `Ether`, `Kether`, `Mether`, `Gether`, `Tether`
+
+### Chain IDs
+
+Pre-defined chain IDs for popular networks:
+
+```go
+// Instead of magic numbers
+txParams.SetChainID(big.NewInt(1))
+
+// Use typed chain IDs
+txParams.SetChainID(web3.ChainMainnet)
+txParams.SetChainID(web3.ChainGoerli)
+txParams.SetChainID(web3.ChainPolygon)
+txParams.SetChainID(web3.ChainArbitrum)
+
+// Get network information
+config, err := web3.GetNetworkConfig(web3.ChainMainnet)
+fmt.Printf("Network: %s, Currency: %s\n", config.Name, config.Currency)
+
+// Check network type
+isTestnet := web3.IsTestnet(web3.ChainGoerli) // true
+isMainnet := web3.IsMainnet(web3.ChainMainnet) // true
+```
+
+### Gas Limits
+
+Standard gas limits for common operations:
+
+```go
+// Predefined gas limits
+txParams.SetGas(web3.GasLimitTransfer.Uint64())        // 21,000
+txParams.SetGas(web3.GasLimitTokenTransfer.Uint64())   // 65,000
+txParams.SetGas(web3.GasLimitTokenApproval.Uint64())   // 50,000
+txParams.SetGas(web3.GasLimitContractDeploy.Uint64())  // 500,000
+```
+
+### Gas Price Optimization
+
+Smart gas pricing with predefined levels:
+
+```go
+// Gas price optimization levels
+optimal, err := web3.GetOptimalGasPrice(ctx, client, web3.GasPriceStandard) // +10%
+rapid, err := web3.GetOptimalGasPrice(ctx, client, web3.GasPriceRapid)     // +50%
+
+// Levels: GasPriceSlow, GasPriceStandard, GasPriceFast, GasPriceRapid
+```
+
+### Common Addresses
+
+Pre-defined addresses for popular contracts:
+
+```go
+// Common Ethereum addresses
+wethContract := web3.WETHMainnet.String()
+usdcContract := web3.USDCMainnet.String()
+usdtContract := web3.USDTMainnet.String()
+
+// Special addresses
+zeroAddr := web3.ZeroAddress.String()
+burnAddr := web3.BurnAddress.String()
+
+// Address validation helpers
+if web3.IsZeroAddress(someAddress) {
+    fmt.Println("Cannot send to zero address")
+}
+```
+
+### Function Signatures
+
+Type-safe ERC-20 function signatures:
+
+```go
+// Instead of hardcoded strings
+data, err := web3.EncodeABI("balanceOf(address)", address)
+
+// Use typed signatures
+data, err := web3.EncodeABI(web3.FuncBalanceOf.String(), address)
+data, err := web3.EncodeABI(web3.FuncTransfer.String(), to, amount)
+data, err := web3.EncodeABI(web3.FuncApprove.String(), spender, amount)
+```
+
+### Transaction Helpers
+
+High-level transaction builders:
+
+```go
+// Simple ETH transfer
+ethTx := web3.NewSimpleTransfer("0xRecipient", "1.5", web3.ChainMainnet)
+
+// Token transfer
+tokenTx, err := web3.NewTokenTransfer(
+    web3.USDCMainnet.String(),
+    "0xRecipient", 
+    amount,
+    web3.ChainMainnet,
+)
+
+// Token approval
+approvalTx, err := web3.NewTokenApproval(
+    web3.USDCMainnet.String(),
+    spenderAddress,
+    amount,
+    web3.ChainMainnet,
+)
+```
+
+### Transaction Status
+
+Type-safe transaction status checking:
+
+```go
+// Instead of string comparisons
+if receipt.Status == "0x1" {
+    fmt.Println("Success")
+}
+
+// Use typed status
+if web3.IsTransactionSuccess(receipt) {
+    fmt.Println("Transaction successful!")
+}
+
+if web3.IsTransactionFailure(receipt) {
+    fmt.Println("Transaction failed!")
+}
+```
+
+### Complete Example
+
+```go
+// Before: Hardcoded strings everywhere
+balance, _ := client.Eth().GetBalance(ctx, addr, "latest")
+weiVal, _ := web3.ToWei("1.5", "ether")
+gasPrice, _ := web3.ToWei("20", "gwei")
+
+tx := web3.NewTransactionParams().
+    SetTo(recipient).
+    SetValue(weiVal).
+    SetGas(21000).
+    SetGasPrice(gasPrice).
+    SetChainID(big.NewInt(1))
+
+// After: Type-safe constants
+balance, _ := client.Eth().GetBalance(ctx, addr, web3.BlockLatest)
+weiVal, _ := web3.ToWei("1.5", web3.Ether)
+gasPrice, _ := web3.ToWei("20", web3.Gwei)
+
+tx := web3.NewTransactionParams().
+    SetTo(recipient).
+    SetValue(weiVal).
+    SetGas(web3.GasLimitTransfer.Uint64()).
+    SetGasPrice(gasPrice).
+    SetChainID(web3.ChainMainnet)
+```
+
+### Benefits
+
+- **Type Safety**: Compile-time checking prevents typos
+- **IDE Support**: Autocomplete and IntelliSense 
+- **Maintainability**: Centralized constant definitions
+- **Readability**: Self-documenting code
+- **Consistency**: Standardized values across the library
+
 ## 🛠️ Utility Functions
 
 ### Wei/Ether Conversion
