@@ -1,6 +1,6 @@
 module github.com/donghquinn/go-web3
 
-go 1.21
+go 1.24.0
 
 require (
 	github.com/donghquinn/go-blockchain-helper v1.0.1
@@ -19,8 +19,8 @@ require (
 	github.com/holiman/uint256 v1.2.3 // indirect
 	github.com/mmcloughlin/addchain v0.4.0 // indirect
 	github.com/supranational/blst v0.3.11 // indirect
-	golang.org/x/crypto v0.17.0 // indirect
+	golang.org/x/crypto v0.45.0 // indirect
 	golang.org/x/sync v0.3.0 // indirect
-	golang.org/x/sys v0.15.0 // indirect
+	golang.org/x/sys v0.38.0 // indirect
 	rsc.io/tmplfunc v0.0.3 // indirect
 )
