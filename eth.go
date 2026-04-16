@@ -332,12 +332,190 @@ func (e *Eth) IsPendingTransaction(ctx context.Context, txHash string) (bool, er
 	if err != nil {
 		return false, err
 	}
-	
+
 	for _, tx := range pendingTxs {
 		if tx.Hash == txHash {
 			return true, nil
 		}
 	}
-	
+
 	return false, nil
+}
+
+// LogFilter defines filter parameters for eth_getLogs
+type LogFilter struct {
+	FromBlock BlockParameter `json:"fromBlock,omitempty"`
+	ToBlock   BlockParameter `json:"toBlock,omitempty"`
+	Address   interface{}    `json:"address,omitempty"` // string or []string
+	Topics    []interface{}  `json:"topics,omitempty"`  // each element: nil, string, or []string
+	BlockHash string         `json:"blockHash,omitempty"`
+}
+
+// Log represents a single event log entry
+type Log struct {
+	Address          string   `json:"address"`
+	Topics           []string `json:"topics"`
+	Data             string   `json:"data"`
+	BlockNumber      string   `json:"blockNumber"`
+	BlockTimestamp   string   `json:"blockTimestamp,omitempty"`
+	TransactionHash  string   `json:"transactionHash"`
+	TransactionIndex string   `json:"transactionIndex"`
+	BlockHash        string   `json:"blockHash"`
+	LogIndex         string   `json:"logIndex"`
+	Removed          bool     `json:"removed"`
+}
+
+// GetLogs returns event logs matching the given filter
+func (e *Eth) GetLogs(ctx context.Context, filter LogFilter) ([]*Log, error) {
+	result, err := e.client.Call(ctx, EthGetLogs.String(), []interface{}{filter})
+	if err != nil {
+		return nil, err
+	}
+
+	var logs []*Log
+	if err := json.Unmarshal(result, &logs); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal logs: %w", err)
+	}
+
+	return logs, nil
+}
+
+// GetStorageAt returns the value of a storage slot at a given address
+func (e *Eth) GetStorageAt(ctx context.Context, address string, position string, blockNumber BlockParameter) (string, error) {
+	if blockNumber == "" {
+		blockNumber = BlockLatest
+	}
+
+	result, err := e.client.Call(ctx, EthGetStorageAt.String(), []interface{}{address, position, blockNumber.String()})
+	if err != nil {
+		return "", err
+	}
+
+	var value string
+	if err := json.Unmarshal(result, &value); err != nil {
+		return "", fmt.Errorf("failed to unmarshal storage value: %w", err)
+	}
+
+	return value, nil
+}
+
+// GetCode returns the compiled bytecode of a smart contract
+func (e *Eth) GetCode(ctx context.Context, address string, blockNumber BlockParameter) (string, error) {
+	if blockNumber == "" {
+		blockNumber = BlockLatest
+	}
+
+	result, err := e.client.Call(ctx, EthGetCode.String(), []interface{}{address, blockNumber.String()})
+	if err != nil {
+		return "", err
+	}
+
+	var code string
+	if err := json.Unmarshal(result, &code); err != nil {
+		return "", fmt.Errorf("failed to unmarshal code: %w", err)
+	}
+
+	return code, nil
+}
+
+// GetNetVersion returns the current network ID
+func (e *Eth) GetNetVersion(ctx context.Context) (string, error) {
+	result, err := e.client.Call(ctx, NetVersion.String(), []interface{}{})
+	if err != nil {
+		return "", err
+	}
+
+	var version string
+	if err := json.Unmarshal(result, &version); err != nil {
+		return "", fmt.Errorf("failed to unmarshal net version: %w", err)
+	}
+
+	return version, nil
+}
+
+// GetClientVersion returns the current client version string
+func (e *Eth) GetClientVersion(ctx context.Context) (string, error) {
+	result, err := e.client.Call(ctx, Web3ClientVersion.String(), []interface{}{})
+	if err != nil {
+		return "", err
+	}
+
+	var version string
+	if err := json.Unmarshal(result, &version); err != nil {
+		return "", fmt.Errorf("failed to unmarshal client version: %w", err)
+	}
+
+	return version, nil
+}
+
+// GetChainID returns the chain ID of the connected network
+func (e *Eth) GetChainID(ctx context.Context) (*big.Int, error) {
+	result, err := e.client.Call(ctx, EthChainId.String(), []interface{}{})
+	if err != nil {
+		return nil, err
+	}
+
+	var hexValue string
+	if err := json.Unmarshal(result, &hexValue); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal chain ID: %w", err)
+	}
+
+	chainID := new(big.Int)
+	chainID.SetString(hexValue[2:], 16)
+	return chainID, nil
+}
+
+// GetMaxPriorityFeePerGas returns the current maxPriorityFeePerGas (EIP-1559 tip)
+func (e *Eth) GetMaxPriorityFeePerGas(ctx context.Context) (*big.Int, error) {
+	result, err := e.client.Call(ctx, EthMaxPriorityFeePerGas.String(), []interface{}{})
+	if err != nil {
+		return nil, err
+	}
+
+	var hexValue string
+	if err := json.Unmarshal(result, &hexValue); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal max priority fee per gas: %w", err)
+	}
+
+	fee := new(big.Int)
+	fee.SetString(hexValue[2:], 16)
+	return fee, nil
+}
+
+// FeeHistoryResult holds the response from eth_feeHistory
+type FeeHistoryResult struct {
+	OldestBlock        string     `json:"oldestBlock"`
+	BaseFeePerGas      []string   `json:"baseFeePerGas"`
+	GasUsedRatio       []float64  `json:"gasUsedRatio"`
+	Reward             [][]string `json:"reward,omitempty"`
+	BaseFeePerBlobGas  []string   `json:"baseFeePerBlobGas,omitempty"`  // EIP-4844
+	BlobGasUsedRatio   []float64  `json:"blobGasUsedRatio,omitempty"`   // EIP-4844
+}
+
+// GetFeeHistory returns historical gas fee data for the given block range.
+// blockCount is the number of blocks to include (hex string or uint64 as string).
+// rewardPercentiles is an optional list of percentiles (0-100) for priority fee sampling.
+func (e *Eth) GetFeeHistory(ctx context.Context, blockCount uint64, newestBlock BlockParameter, rewardPercentiles []float64) (*FeeHistoryResult, error) {
+	if newestBlock == "" {
+		newestBlock = BlockLatest
+	}
+
+	params := []interface{}{ToHex(blockCount), newestBlock.String()}
+	if len(rewardPercentiles) > 0 {
+		params = append(params, rewardPercentiles)
+	} else {
+		params = append(params, []float64{})
+	}
+
+	result, err := e.client.Call(ctx, EthFeeHistory.String(), params)
+	if err != nil {
+		return nil, err
+	}
+
+	var feeHistory FeeHistoryResult
+	if err := json.Unmarshal(result, &feeHistory); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal fee history: %w", err)
+	}
+
+	return &feeHistory, nil
 }
