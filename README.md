@@ -5,9 +5,14 @@ A comprehensive Go library for interacting with Ethereum blockchain through JSON
 ## 🚀 Features
 
 - **Complete Ethereum JSON-RPC Implementation**: All major eth_* methods supported
+- **EIP-1559 Support**: Fee history, max priority fee, and type-2 transaction signing
+- **EIP-4844 Awareness**: Blob gas fields included in fee history responses
+- **Event Log Queries**: Filter contract events with `eth_getLogs`
+- **Contract Inspection**: Read bytecode and storage slots at any block
+- **Network & Chain Info**: Chain ID, net version, and client version queries
 - **Pending Transaction Support**: Monitor mempool, get pending transactions by account
 - **Context-Aware Operations**: Proper context handling for timeouts and cancellation
-- **Type-Safe Structures**: Strongly-typed transaction, block, and receipt objects
+- **Type-Safe Structures**: Strongly-typed transaction, block, receipt, log, and fee objects
 - **Web3.js-Like API**: Familiar method names and usage patterns for JavaScript developers
 - **Built-in Utilities**: Wei/Ether conversion, address validation, hex operations
 - **Robust Error Handling**: Detailed RPC error information with proper Go error wrapping
@@ -319,6 +324,37 @@ gasPriceGwei, _ := web3.FromWei(gasPrice, "gwei")
 fmt.Printf("Current gas price: %s Gwei\n", gasPriceGwei)
 ```
 
+##### Get Max Priority Fee Per Gas (EIP-1559)
+```go
+// The recommended tip (priority fee) for the next block
+tip, err := client.Eth().GetMaxPriorityFeePerGas(ctx)
+if err != nil {
+    log.Fatal(err)
+}
+
+tipGwei, _ := web3.FromWei(tip, web3.Gwei)
+fmt.Printf("Suggested tip: %s Gwei\n", tipGwei)
+```
+
+##### Get Fee History (EIP-1559)
+```go
+// Fetch the last 10 blocks' base fees, gas ratios, and 25th/75th percentile priority fees
+feeHistory, err := client.Eth().GetFeeHistory(ctx, 10, web3.BlockLatest, []float64{25, 75})
+if err != nil {
+    log.Fatal(err)
+}
+
+fmt.Printf("Oldest block: %s\n", feeHistory.OldestBlock)
+for i, baseFee := range feeHistory.BaseFeePerGas {
+    fmt.Printf("Block +%d base fee: %s\n", i, baseFee)
+}
+
+// EIP-4844 blob gas (non-nil on post-Cancun nodes)
+if len(feeHistory.BaseFeePerBlobGas) > 0 {
+    fmt.Printf("Blob base fee: %s\n", feeHistory.BaseFeePerBlobGas[0])
+}
+```
+
 ##### Estimate Gas
 ```go
 // Create transaction object
@@ -345,12 +381,130 @@ callObj := map[string]interface{}{
     "data": "0x70a08231000000000000000000000000d8da6bf26964af9d7eed9e03e53415d37aa96045", // balanceOf call
 }
 
-result, err := client.Eth().Call(ctx, callObj, "latest")
+result, err := client.Eth().Call(ctx, callObj, web3.BlockLatest)
 if err != nil {
     log.Fatal(err)
 }
 fmt.Printf("Contract call result: %s\n", result)
 ```
+
+##### Get Contract Bytecode
+```go
+// Returns "0x" for EOAs, bytecode hex for contracts
+code, err := client.Eth().GetCode(ctx, "0xA0b86a33E6417c48cd7a94Ca95e70aD2c51e74f7", web3.BlockLatest)
+if err != nil {
+    log.Fatal(err)
+}
+
+if code == "0x" || code == "" {
+    fmt.Println("Address is not a contract")
+} else {
+    fmt.Printf("Contract bytecode length: %d bytes\n", (len(code)-2)/2)
+}
+```
+
+##### Read Contract Storage Slot
+```go
+// Read a raw storage slot (position as 32-byte hex quantity)
+value, err := client.Eth().GetStorageAt(ctx,
+    "0xA0b86a33E6417c48cd7a94Ca95e70aD2c51e74f7",
+    "0x0", // slot 0
+    web3.BlockLatest,
+)
+if err != nil {
+    log.Fatal(err)
+}
+fmt.Printf("Storage slot 0: %s\n", value)
+```
+
+#### 📋 Event Logs
+
+##### Query Event Logs
+```go
+// Filter Transfer events from an ERC-20 contract
+filter := web3.LogFilter{
+    Address:   "0xA0b86a33E6417c48cd7a94Ca95e70aD2c51e74f7",
+    FromBlock: web3.BlockNumber(18000000),
+    ToBlock:   web3.BlockLatest,
+    Topics: []interface{}{
+        "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef", // Transfer(address,address,uint256)
+    },
+}
+
+logs, err := client.Eth().GetLogs(ctx, filter)
+if err != nil {
+    log.Fatal(err)
+}
+
+for _, log := range logs {
+    fmt.Printf("Block: %s  Tx: %s  LogIndex: %s\n", log.BlockNumber, log.TransactionHash, log.LogIndex)
+    fmt.Printf("Topics: %v\n", log.Topics)
+    fmt.Printf("Data: %s\n", log.Data)
+}
+```
+
+##### Filter by Block Hash
+```go
+// Get all logs in a specific block
+filter := web3.LogFilter{
+    BlockHash: "0xabc123...",
+}
+
+logs, err := client.Eth().GetLogs(ctx, filter)
+```
+
+##### Multi-Address and OR-Topic Filter
+```go
+// Multiple addresses, OR-topic matching
+filter := web3.LogFilter{
+    Address: []string{
+        "0xContractA...",
+        "0xContractB...",
+    },
+    Topics: []interface{}{
+        // topic[0]: must match one of these two event signatures
+        []string{
+            "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef", // Transfer
+            "0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925", // Approval
+        },
+    },
+    FromBlock: web3.BlockLatest,
+    ToBlock:   web3.BlockLatest,
+}
+```
+
+#### 🌐 Network & Chain Info
+
+##### Get Chain ID
+```go
+chainID, err := client.Eth().GetChainID(ctx)
+if err != nil {
+    log.Fatal(err)
+}
+fmt.Printf("Chain ID: %s\n", chainID.String()) // e.g. "1" for mainnet
+```
+
+##### Get Network Version
+```go
+// Returns the network ID as a decimal string (e.g. "1" for mainnet)
+netVersion, err := client.Eth().GetNetVersion(ctx)
+if err != nil {
+    log.Fatal(err)
+}
+fmt.Printf("Network version: %s\n", netVersion)
+```
+
+##### Get Client Version
+```go
+// Returns the connected node's client version string
+clientVersion, err := client.Eth().GetClientVersion(ctx)
+if err != nil {
+    log.Fatal(err)
+}
+fmt.Printf("Client: %s\n", clientVersion) // e.g. "Geth/v1.13.0/.../go1.21.0"
+```
+
+#### ⛽ Gas Operations
 
 ## 💰 Transaction Management
 
@@ -1245,9 +1399,13 @@ func getMultipleBalances(client *web3.Client, addresses []string) (map[string]*b
 
 ```
 go-web3/
-├── client.go          # Core RPC client implementation
-├── eth.go             # Ethereum-specific methods
-├── utils.go           # Utility functions  
+├── client.go          # Core JSON-RPC HTTP client
+├── eth.go             # Ethereum API methods (eth_*, net_*, web3_*)
+├── wallet.go          # Wallet creation and high-level send helpers
+├── transaction.go     # Transaction signing (legacy & EIP-1559)
+├── types.go           # Typed constants, enums, and network configs
+├── utils.go           # Wei/Ether conversion, hex, address utilities
+├── helpers.go         # Advanced helpers (ERC-20/ERC-721, ABI encoding)
 ├── example/
 │   └── main.go        # Usage examples
 ├── go.mod             # Go module definition
