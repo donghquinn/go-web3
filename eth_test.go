@@ -19,12 +19,32 @@ func TestGetBalance(t *testing.T) {
 	}
 }
 
+func TestGetBalanceRPCError(t *testing.T) {
+	srv := newMockRPCErrorServer(-32000, "execution reverted")
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL).Eth().GetBalance(context.Background(), "0x1", BlockLatest)
+	if err == nil {
+		t.Fatal("expected RPC error")
+	}
+}
+
 func TestGetBalanceDefaultBlock(t *testing.T) {
 	srv := newMockRPCServer("0x0")
 	defer srv.Close()
 
 	if _, err := NewClient(srv.URL).Eth().GetBalance(context.Background(), "0x742d35Cc6634C0532925a3b844Bc454e4438f44e", ""); err != nil {
 		t.Fatalf("GetBalance() with empty block = %v", err)
+	}
+}
+
+func TestGetBalanceUnmarshalError(t *testing.T) {
+	srv := newMockRPCServer(42) // number, not a quoted hex string
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL).Eth().GetBalance(context.Background(), "0x1", BlockLatest)
+	if err == nil {
+		t.Fatal("expected unmarshal error")
 	}
 }
 
@@ -38,6 +58,26 @@ func TestGetBlockNumber(t *testing.T) {
 	}
 	if num != 256 {
 		t.Errorf("GetBlockNumber() = %d, want 256", num)
+	}
+}
+
+func TestGetBlockNumberUnmarshalError(t *testing.T) {
+	srv := newMockRPCServer(42)
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL).Eth().GetBlockNumber(context.Background())
+	if err == nil {
+		t.Fatal("expected unmarshal error")
+	}
+}
+
+func TestGetBlockNumberRPCError(t *testing.T) {
+	srv := newMockRPCErrorServer(-32601, "method not found")
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL).Eth().GetBlockNumber(context.Background())
+	if err == nil {
+		t.Fatal("expected RPC error")
 	}
 }
 
@@ -55,6 +95,16 @@ func TestGetGasPrice(t *testing.T) {
 	}
 }
 
+func TestGetGasPriceUnmarshalError(t *testing.T) {
+	srv := newMockRPCServer(42)
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL).Eth().GetGasPrice(context.Background())
+	if err == nil {
+		t.Fatal("expected unmarshal error")
+	}
+}
+
 func TestGetTransactionCount(t *testing.T) {
 	srv := newMockRPCServer("0x5") // nonce 5
 	defer srv.Close()
@@ -65,6 +115,25 @@ func TestGetTransactionCount(t *testing.T) {
 	}
 	if count != 5 {
 		t.Errorf("GetTransactionCount() = %d, want 5", count)
+	}
+}
+
+func TestGetTransactionCountDefaultBlock(t *testing.T) {
+	srv := newMockRPCServer("0x0")
+	defer srv.Close()
+
+	if _, err := NewClient(srv.URL).Eth().GetTransactionCount(context.Background(), "0x1", ""); err != nil {
+		t.Fatalf("GetTransactionCount() empty block = %v", err)
+	}
+}
+
+func TestGetTransactionCountUnmarshalError(t *testing.T) {
+	srv := newMockRPCServer(42)
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL).Eth().GetTransactionCount(context.Background(), "0x1", BlockLatest)
+	if err == nil {
+		t.Fatal("expected unmarshal error")
 	}
 }
 
@@ -81,6 +150,26 @@ func TestGetChainID(t *testing.T) {
 	}
 }
 
+func TestGetChainIDRPCError(t *testing.T) {
+	srv := newMockRPCErrorServer(-32601, "method not found")
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL).Eth().GetChainID(context.Background())
+	if err == nil {
+		t.Fatal("expected RPC error")
+	}
+}
+
+func TestGetChainIDUnmarshalError(t *testing.T) {
+	srv := newMockRPCServer(42)
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL).Eth().GetChainID(context.Background())
+	if err == nil {
+		t.Fatal("expected unmarshal error")
+	}
+}
+
 func TestGetNetVersion(t *testing.T) {
 	srv := newMockRPCServer("1")
 	defer srv.Close()
@@ -91,6 +180,26 @@ func TestGetNetVersion(t *testing.T) {
 	}
 	if ver != "1" {
 		t.Errorf("GetNetVersion() = %q, want %q", ver, "1")
+	}
+}
+
+func TestGetNetVersionRPCError(t *testing.T) {
+	srv := newMockRPCErrorServer(-32601, "method not found")
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL).Eth().GetNetVersion(context.Background())
+	if err == nil {
+		t.Fatal("expected RPC error")
+	}
+}
+
+func TestGetNetVersionUnmarshalError(t *testing.T) {
+	srv := newMockRPCServer(42)
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL).Eth().GetNetVersion(context.Background())
+	if err == nil {
+		t.Fatal("expected unmarshal error")
 	}
 }
 
@@ -107,6 +216,26 @@ func TestGetClientVersion(t *testing.T) {
 	}
 }
 
+func TestGetClientVersionRPCError(t *testing.T) {
+	srv := newMockRPCErrorServer(-32601, "method not found")
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL).Eth().GetClientVersion(context.Background())
+	if err == nil {
+		t.Fatal("expected RPC error")
+	}
+}
+
+func TestGetClientVersionUnmarshalError(t *testing.T) {
+	srv := newMockRPCServer(42)
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL).Eth().GetClientVersion(context.Background())
+	if err == nil {
+		t.Fatal("expected unmarshal error")
+	}
+}
+
 func TestGetMaxPriorityFeePerGas(t *testing.T) {
 	srv := newMockRPCServer("0x77359400") // 2 gwei
 	defer srv.Close()
@@ -118,6 +247,26 @@ func TestGetMaxPriorityFeePerGas(t *testing.T) {
 	expected, _ := ToWei("2", Gwei)
 	if fee.Cmp(expected) != 0 {
 		t.Errorf("GetMaxPriorityFeePerGas() = %v, want %v", fee, expected)
+	}
+}
+
+func TestGetMaxPriorityFeePerGasRPCError(t *testing.T) {
+	srv := newMockRPCErrorServer(-32601, "method not found")
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL).Eth().GetMaxPriorityFeePerGas(context.Background())
+	if err == nil {
+		t.Fatal("expected RPC error")
+	}
+}
+
+func TestGetMaxPriorityFeePerGasUnmarshalError(t *testing.T) {
+	srv := newMockRPCServer(42)
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL).Eth().GetMaxPriorityFeePerGas(context.Background())
+	if err == nil {
+		t.Fatal("expected unmarshal error")
 	}
 }
 
@@ -143,6 +292,16 @@ func TestGetBlockByNumberDefaultParam(t *testing.T) {
 	}
 }
 
+func TestGetBlockByNumberUnmarshalError(t *testing.T) {
+	srv := newMockRPCServer("not-a-block")
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL).Eth().GetBlockByNumber(context.Background(), BlockLatest, false)
+	if err == nil {
+		t.Fatal("expected unmarshal error")
+	}
+}
+
 func TestGetBlockByHash(t *testing.T) {
 	srv := newMockRPCServer(Block{Hash: "0xdeadbeef", Number: "0x5", Transactions: []interface{}{}})
 	defer srv.Close()
@@ -153,6 +312,26 @@ func TestGetBlockByHash(t *testing.T) {
 	}
 	if b.Hash != "0xdeadbeef" {
 		t.Errorf("GetBlockByHash() Hash = %q", b.Hash)
+	}
+}
+
+func TestGetBlockByHashRPCError(t *testing.T) {
+	srv := newMockRPCErrorServer(-32000, "block not found")
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL).Eth().GetBlockByHash(context.Background(), "0x1", false)
+	if err == nil {
+		t.Fatal("expected RPC error")
+	}
+}
+
+func TestGetBlockByHashUnmarshalError(t *testing.T) {
+	srv := newMockRPCServer("not-a-block")
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL).Eth().GetBlockByHash(context.Background(), "0x1", false)
+	if err == nil {
+		t.Fatal("expected unmarshal error")
 	}
 }
 
@@ -169,6 +348,26 @@ func TestGetTransactionByHash(t *testing.T) {
 	}
 }
 
+func TestGetTransactionByHashRPCError(t *testing.T) {
+	srv := newMockRPCErrorServer(-32000, "tx not found")
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL).Eth().GetTransactionByHash(context.Background(), "0x1")
+	if err == nil {
+		t.Fatal("expected RPC error")
+	}
+}
+
+func TestGetTransactionByHashUnmarshalError(t *testing.T) {
+	srv := newMockRPCServer("not-a-tx")
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL).Eth().GetTransactionByHash(context.Background(), "0x1")
+	if err == nil {
+		t.Fatal("expected unmarshal error")
+	}
+}
+
 func TestGetTransactionReceipt(t *testing.T) {
 	srv := newMockRPCServer(TransactionReceipt{TransactionHash: "0xabc123", Status: "0x1", BlockNumber: "0xa", GasUsed: "0x5208"})
 	defer srv.Close()
@@ -179,6 +378,26 @@ func TestGetTransactionReceipt(t *testing.T) {
 	}
 	if receipt.Status != "0x1" {
 		t.Errorf("GetTransactionReceipt() Status = %q, want %q", receipt.Status, "0x1")
+	}
+}
+
+func TestGetTransactionReceiptRPCError(t *testing.T) {
+	srv := newMockRPCErrorServer(-32000, "receipt not found")
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL).Eth().GetTransactionReceipt(context.Background(), "0x1")
+	if err == nil {
+		t.Fatal("expected RPC error")
+	}
+}
+
+func TestGetTransactionReceiptUnmarshalError(t *testing.T) {
+	srv := newMockRPCServer("not-a-receipt")
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL).Eth().GetTransactionReceipt(context.Background(), "0x1")
+	if err == nil {
+		t.Fatal("expected unmarshal error")
 	}
 }
 
@@ -195,6 +414,26 @@ func TestSendRawTransaction(t *testing.T) {
 	}
 }
 
+func TestSendRawTransactionUnmarshalError(t *testing.T) {
+	srv := newMockRPCServer(42)
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL).Eth().SendRawTransaction(context.Background(), "0xraw")
+	if err == nil {
+		t.Fatal("expected unmarshal error")
+	}
+}
+
+func TestSendRawTransactionRPCError(t *testing.T) {
+	srv := newMockRPCErrorServer(-32000, "nonce too low")
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL).Eth().SendRawTransaction(context.Background(), "0xraw")
+	if err == nil {
+		t.Fatal("expected RPC error")
+	}
+}
+
 func TestEstimateGas(t *testing.T) {
 	srv := newMockRPCServer("0x5208") // 21000
 	defer srv.Close()
@@ -208,6 +447,16 @@ func TestEstimateGas(t *testing.T) {
 	}
 	if gas != 21000 {
 		t.Errorf("EstimateGas() = %d, want 21000", gas)
+	}
+}
+
+func TestEstimateGasUnmarshalError(t *testing.T) {
+	srv := newMockRPCServer(42)
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL).Eth().EstimateGas(context.Background(), map[string]interface{}{"to": "0x1"})
+	if err == nil {
+		t.Fatal("expected unmarshal error")
 	}
 }
 
@@ -236,6 +485,26 @@ func TestCallDefaultBlock(t *testing.T) {
 	}
 }
 
+func TestCallRPCError(t *testing.T) {
+	srv := newMockRPCErrorServer(-32000, "execution reverted")
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL).Eth().Call(context.Background(), map[string]interface{}{"to": "0x1"}, BlockLatest)
+	if err == nil {
+		t.Fatal("expected RPC error")
+	}
+}
+
+func TestCallUnmarshalError(t *testing.T) {
+	srv := newMockRPCServer(42)
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL).Eth().Call(context.Background(), map[string]interface{}{"to": "0x1"}, BlockLatest)
+	if err == nil {
+		t.Fatal("expected unmarshal error")
+	}
+}
+
 func TestGetStorageAt(t *testing.T) {
 	srv := newMockRPCServer("0x000000000000000000000000000000000000000000000000000000000000002a")
 	defer srv.Close()
@@ -249,12 +518,32 @@ func TestGetStorageAt(t *testing.T) {
 	}
 }
 
+func TestGetStorageAtRPCError(t *testing.T) {
+	srv := newMockRPCErrorServer(-32000, "storage error")
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL).Eth().GetStorageAt(context.Background(), "0x1", "0x0", BlockLatest)
+	if err == nil {
+		t.Fatal("expected RPC error")
+	}
+}
+
 func TestGetStorageAtDefaultBlock(t *testing.T) {
 	srv := newMockRPCServer("0x0")
 	defer srv.Close()
 
 	if _, err := NewClient(srv.URL).Eth().GetStorageAt(context.Background(), "0x1", "0x0", ""); err != nil {
 		t.Fatalf("GetStorageAt() with empty block = %v", err)
+	}
+}
+
+func TestGetStorageAtUnmarshalError(t *testing.T) {
+	srv := newMockRPCServer(42)
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL).Eth().GetStorageAt(context.Background(), "0x1", "0x0", BlockLatest)
+	if err == nil {
+		t.Fatal("expected unmarshal error")
 	}
 }
 
@@ -271,6 +560,35 @@ func TestGetCode(t *testing.T) {
 	}
 }
 
+func TestGetCodeRPCError(t *testing.T) {
+	srv := newMockRPCErrorServer(-32000, "code error")
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL).Eth().GetCode(context.Background(), "0x1", BlockLatest)
+	if err == nil {
+		t.Fatal("expected RPC error")
+	}
+}
+
+func TestGetCodeDefaultBlock(t *testing.T) {
+	srv := newMockRPCServer("0x0")
+	defer srv.Close()
+
+	if _, err := NewClient(srv.URL).Eth().GetCode(context.Background(), "0x1", ""); err != nil {
+		t.Fatalf("GetCode() with empty block = %v", err)
+	}
+}
+
+func TestGetCodeUnmarshalError(t *testing.T) {
+	srv := newMockRPCServer(42)
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL).Eth().GetCode(context.Background(), "0x1", BlockLatest)
+	if err == nil {
+		t.Fatal("expected unmarshal error")
+	}
+}
+
 func TestGetLogs(t *testing.T) {
 	logs := []*Log{{Address: "0xabc", TransactionHash: "0xdef", BlockNumber: "0x1"}}
 	srv := newMockRPCServer(logs)
@@ -282,6 +600,26 @@ func TestGetLogs(t *testing.T) {
 	}
 	if len(got) != 1 {
 		t.Errorf("GetLogs() returned %d logs, want 1", len(got))
+	}
+}
+
+func TestGetLogsRPCError(t *testing.T) {
+	srv := newMockRPCErrorServer(-32000, "filter not found")
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL).Eth().GetLogs(context.Background(), LogFilter{})
+	if err == nil {
+		t.Fatal("expected RPC error")
+	}
+}
+
+func TestGetLogsUnmarshalError(t *testing.T) {
+	srv := newMockRPCServer("not-logs")
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL).Eth().GetLogs(context.Background(), LogFilter{})
+	if err == nil {
+		t.Fatal("expected unmarshal error")
 	}
 }
 
@@ -311,6 +649,26 @@ func TestGetFeeHistoryDefaultBlock(t *testing.T) {
 	}
 }
 
+func TestGetFeeHistoryRPCError(t *testing.T) {
+	srv := newMockRPCErrorServer(-32000, "fee history error")
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL).Eth().GetFeeHistory(context.Background(), 1, BlockLatest, nil)
+	if err == nil {
+		t.Fatal("expected RPC error")
+	}
+}
+
+func TestGetFeeHistoryUnmarshalError(t *testing.T) {
+	srv := newMockRPCServer("not-fee-history")
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL).Eth().GetFeeHistory(context.Background(), 1, BlockLatest, nil)
+	if err == nil {
+		t.Fatal("expected unmarshal error")
+	}
+}
+
 func TestGetPendingTransactions(t *testing.T) {
 	block := map[string]interface{}{
 		"number": "pending",
@@ -334,6 +692,37 @@ func TestGetPendingTransactions(t *testing.T) {
 	}
 }
 
+func TestGetPendingTransactionsHashOnly(t *testing.T) {
+	// fullTransactions=false returns hash strings, not objects.
+	// txsFromBlock should skip non-map entries gracefully.
+	block := map[string]interface{}{
+		"number":       "pending",
+		"hash":         "0x0",
+		"transactions": []interface{}{"0xhash1", "0xhash2"},
+	}
+	srv := newMockRPCServer(block)
+	defer srv.Close()
+
+	txs, err := NewClient(srv.URL).Eth().GetPendingTransactions(context.Background())
+	if err != nil {
+		t.Fatalf("GetPendingTransactions() error = %v", err)
+	}
+	// Strings are not maps so they are skipped; result should be empty (nil)
+	if len(txs) != 0 {
+		t.Errorf("GetPendingTransactions() with hash-only = %d txs, want 0", len(txs))
+	}
+}
+
+func TestGetPendingTransactionsRPCError(t *testing.T) {
+	srv := newMockRPCErrorServer(-32000, "internal error")
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL).Eth().GetPendingTransactions(context.Background())
+	if err == nil {
+		t.Fatal("expected RPC error")
+	}
+}
+
 func TestGetPendingTransactionCount(t *testing.T) {
 	srv := newMockRPCServer(map[string]interface{}{"number": "pending", "hash": "0x0", "transactions": []interface{}{}})
 	defer srv.Close()
@@ -344,6 +733,16 @@ func TestGetPendingTransactionCount(t *testing.T) {
 	}
 	if count != 0 {
 		t.Errorf("GetPendingTransactionCount() = %d, want 0", count)
+	}
+}
+
+func TestGetPendingTransactionCountRPCError(t *testing.T) {
+	srv := newMockRPCErrorServer(-32000, "internal error")
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL).Eth().GetPendingTransactionCount(context.Background())
+	if err == nil {
+		t.Fatal("expected RPC error")
 	}
 }
 
@@ -366,6 +765,47 @@ func TestGetAccountPendingTransactions(t *testing.T) {
 	}
 	if len(txs) != 1 {
 		t.Errorf("GetAccountPendingTransactions() returned %d txs, want 1", len(txs))
+	}
+}
+
+func TestGetAccountPendingTransactionsRPCError(t *testing.T) {
+	srv := newMockRPCErrorServer(-32000, "internal error")
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL).Eth().GetAccountPendingTransactions(context.Background(), "0xaddr")
+	if err == nil {
+		t.Fatal("expected RPC error")
+	}
+}
+
+func TestGetAccountPendingTransactionsMatchTo(t *testing.T) {
+	const addr = "0xrecipient"
+	block := map[string]interface{}{
+		"number": "pending",
+		"hash":   "0x0",
+		"transactions": []interface{}{
+			map[string]interface{}{"hash": "0xtx1", "from": "0xother", "to": addr, "value": "0x0"},
+		},
+	}
+	srv := newMockRPCServer(block)
+	defer srv.Close()
+
+	txs, err := NewClient(srv.URL).Eth().GetAccountPendingTransactions(context.Background(), addr)
+	if err != nil {
+		t.Fatalf("GetAccountPendingTransactions() error = %v", err)
+	}
+	if len(txs) != 1 {
+		t.Errorf("GetAccountPendingTransactions() matched To = %d txs, want 1", len(txs))
+	}
+}
+
+func TestIsPendingTransactionRPCError(t *testing.T) {
+	srv := newMockRPCErrorServer(-32000, "internal error")
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL).Eth().IsPendingTransaction(context.Background(), "0xhash")
+	if err == nil {
+		t.Fatal("expected RPC error")
 	}
 }
 

@@ -2,6 +2,9 @@ package web3
 
 import (
 	"context"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 )
 
@@ -55,6 +58,42 @@ func TestClientCallContextCanceled(t *testing.T) {
 	_, err := NewClient(srv.URL).Call(ctx, "eth_blockNumber", []interface{}{})
 	if err == nil {
 		t.Fatal("expected error for canceled context")
+	}
+}
+
+func TestClientCallInvalidURL(t *testing.T) {
+	// "://bad" is not a valid URL scheme → http.NewRequestWithContext fails.
+	c := NewClient("://bad")
+	_, err := c.Call(context.Background(), "eth_blockNumber", []interface{}{})
+	if err == nil {
+		t.Fatal("expected error for invalid URL")
+	}
+}
+
+func TestClientCallInvalidJSONResponse(t *testing.T) {
+	// Server returns non-JSON → json.Unmarshal of response body fails.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "not json at all{{{")
+	}))
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL).Call(context.Background(), "eth_blockNumber", []interface{}{})
+	if err == nil {
+		t.Fatal("expected JSON unmarshal error for invalid response body")
+	}
+}
+
+func TestClientCallBodyReadError(t *testing.T) {
+	// Server sets Content-Length longer than actual body → io.ReadAll gets unexpected EOF.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Length", "1000")
+		fmt.Fprint(w, "{") // write far less than declared
+	}))
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL).Call(context.Background(), "eth_blockNumber", []interface{}{})
+	if err == nil {
+		t.Fatal("expected body read error")
 	}
 }
 

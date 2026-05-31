@@ -2,6 +2,7 @@ package web3
 
 import (
 	"math/big"
+	"strings"
 	"testing"
 )
 
@@ -12,14 +13,40 @@ func TestToWei(t *testing.T) {
 		expected string
 		wantErr  bool
 	}{
+		// Primary units
 		{"1", Wei, "1", false},
-		{"1", Gwei, "1000000000", false},
-		{"1", Ether, "1000000000000000000", false},
-		{"0.5", Ether, "500000000000000000", false},
 		{"1", Kwei, "1000", false},
 		{"1", Mwei, "1000000", false},
+		{"1", Gwei, "1000000000", false},
 		{"1", Finney, "1000000000000000", false},
+		{"1", Ether, "1000000000000000000", false},
+		{"0.5", Ether, "500000000000000000", false},
 		{"1", Kether, "1000000000000000000000", false},
+		{"1", Mether, "1000000000000000000000000", false},
+		{"1", Gether, "1000000000000000000000000000", false},
+		{"1", Tether, "1000000000000000000000000000000", false},
+		// Aliases (Gwei group)
+		{"1", Shannon, "1000000000", false},
+		{"1", Nanoether, "1000000000", false},
+		{"1", Nano, "1000000000", false},
+		// Aliases (Kwei group)
+		{"1", Babbage, "1000", false},
+		{"1", Femtoether, "1000", false},
+		// Aliases (Mwei group)
+		{"1", Lovelace, "1000000", false},
+		{"1", Picoether, "1000000", false},
+		// Aliases (Szabo group)
+		{"1", Szabo, "1000000000000", false},
+		{"1", Microether, "1000000000000", false},
+		{"1", Micro, "1000000000000", false},
+		// Aliases (Finney group)
+		{"1", Milliether, "1000000000000000", false},
+		{"1", Milli, "1000000000000000", false},
+		// Aliases (Ether group)
+		{"1", EthUnit, "1000000000000000000", false},
+		// Aliases (Kether group)
+		{"1", Grand, "1000000000000000000000", false},
+		// Error cases
 		{"invalid", Ether, "", true},
 	}
 
@@ -48,23 +75,75 @@ func TestToWeiUnknownUnit(t *testing.T) {
 }
 
 func TestFromWei(t *testing.T) {
+	oneEth, _ := new(big.Int).SetString("1000000000000000000", 10)
 	tests := []struct {
 		wei     *big.Int
 		unit    EtherUnit
 		wantErr bool
 	}{
-		{big.NewInt(1000000000), Gwei, false},
-		{big.NewInt(1000), Kwei, false},
+		// nil input
 		{nil, Ether, false},
+		// Primary units
+		{big.NewInt(1), Wei, false},
+		{big.NewInt(1000), Kwei, false},
+		{big.NewInt(1000000), Mwei, false},
+		{big.NewInt(1000000000), Gwei, false},
+		{big.NewInt(1000000000000), Szabo, false},
+		{big.NewInt(1000000000000000), Finney, false},
+		{oneEth, Ether, false},
+		// Aliases
+		{big.NewInt(1000), Babbage, false},
+		{big.NewInt(1000), Femtoether, false},
+		{big.NewInt(1000000), Lovelace, false},
+		{big.NewInt(1000000), Picoether, false},
+		{big.NewInt(1000000000), Shannon, false},
+		{big.NewInt(1000000000), Nanoether, false},
+		{big.NewInt(1000000000), Nano, false},
+		{big.NewInt(1000000000000), Microether, false},
+		{big.NewInt(1000000000000), Micro, false},
+		{big.NewInt(1000000000000000), Milliether, false},
+		{big.NewInt(1000000000000000), Milli, false},
+		{oneEth, EthUnit, false},
 	}
 
 	for _, tt := range tests {
 		got, err := FromWei(tt.wei, tt.unit)
 		if (err != nil) != tt.wantErr {
-			t.Errorf("FromWei() error = %v, wantErr %v", err, tt.wantErr)
+			t.Errorf("FromWei(%v, %s) error = %v, wantErr %v", tt.wei, tt.unit, err, tt.wantErr)
 		}
 		if tt.wei == nil && got != "0" {
 			t.Errorf("FromWei(nil) = %v, want 0", got)
+		}
+		if !tt.wantErr && tt.wei != nil && got == "" {
+			t.Errorf("FromWei(%v, %s) returned empty string", tt.wei, tt.unit)
+		}
+	}
+}
+
+func TestFromWeiLargeUnits(t *testing.T) {
+	// Kether, Grand, Mether, Gether, Tether
+	oneKether, _ := new(big.Int).SetString("1000000000000000000000", 10)
+	oneMether, _ := new(big.Int).SetString("1000000000000000000000000", 10)
+	oneGether, _ := new(big.Int).SetString("1000000000000000000000000000", 10)
+	oneTether, _ := new(big.Int).SetString("1000000000000000000000000000000", 10)
+
+	cases := []struct {
+		wei  *big.Int
+		unit EtherUnit
+	}{
+		{oneKether, Kether},
+		{oneKether, Grand},
+		{oneMether, Mether},
+		{oneGether, Gether},
+		{oneTether, Tether},
+	}
+	for _, tc := range cases {
+		result, err := FromWei(tc.wei, tc.unit)
+		if err != nil {
+			t.Errorf("FromWei(%v, %s) error = %v", tc.wei, tc.unit, err)
+		}
+		if result == "" {
+			t.Errorf("FromWei(%v, %s) returned empty", tc.wei, tc.unit)
 		}
 	}
 }
@@ -77,7 +156,6 @@ func TestFromWeiUnknownUnit(t *testing.T) {
 }
 
 func TestFromWeiRoundTrip(t *testing.T) {
-	original := "1000000000"
 	wei, err := ToWei("1", Gwei)
 	if err != nil {
 		t.Fatal(err)
@@ -86,9 +164,6 @@ func TestFromWeiRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_ = back
-	_ = original
-	// just verify no error and non-empty result
 	if back == "" {
 		t.Error("FromWei returned empty string")
 	}
@@ -128,8 +203,9 @@ func TestToHex(t *testing.T) {
 		{uint64(16), "0x10"},
 		{big.NewInt(1000), "0x3e8"},
 		{[]byte{0xde, 0xad}, "0xdead"},
-		{"0xabcd", "0xabcd"}, // already hex passthrough
-		{"255", "0xff"},      // decimal string
+		{"0xabcd", "0xabcd"},      // already-hex passthrough
+		{"255", "0xff"},           // decimal string
+		{"hello", "0x68656c6c6f"}, // non-numeric string → encoded as bytes
 	}
 
 	for _, tt := range tests {
@@ -137,6 +213,17 @@ func TestToHex(t *testing.T) {
 		if got != tt.want {
 			t.Errorf("ToHex(%v) = %v, want %v", tt.input, got, tt.want)
 		}
+	}
+}
+
+func TestToHexDefaultCase(t *testing.T) {
+	// float64 hits the default branch in the type switch
+	got := ToHex(float64(255))
+	if got == "" {
+		t.Error("ToHex(float64) returned empty string")
+	}
+	if !strings.HasPrefix(got, "0x") {
+		t.Errorf("ToHex(float64) = %q, want 0x prefix", got)
 	}
 }
 

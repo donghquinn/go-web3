@@ -159,9 +159,6 @@ func hexToAddressPtr(address string) *common.Address {
 }
 
 func SignTransaction(tx *TransactionParams, privateKey *ecdsa.PrivateKey) (*SignedTransaction, error) {
-	if tx.To == "" {
-		return nil, fmt.Errorf("transaction recipient (to) is required")
-	}
 	if tx.GasPrice == nil {
 		return nil, fmt.Errorf("gas price is required")
 	}
@@ -248,6 +245,9 @@ func CreateContractDeployment(bytecode, constructorData []byte, privateKey *ecds
 }
 
 func CreateContractCall(contractAddress string, methodData []byte, privateKey *ecdsa.PrivateKey, params *TransactionParams) (*SignedTransaction, error) {
+	if contractAddress == "" {
+		return nil, fmt.Errorf("contract address is required")
+	}
 	params.To = contractAddress
 	params.Data = methodData
 	return SignTransaction(params, privateKey)
