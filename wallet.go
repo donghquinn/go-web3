@@ -36,12 +36,9 @@ func NewWallet(privateKeyHex string, client *Client) (*Wallet, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid private key: %w", err)
 	}
-
-	address := PrivateKeyToAddress(privateKey)
-
 	return &Wallet{
 		privateKey: privateKey,
-		address:    address,
+		address:    PrivateKeyToAddress(privateKey),
 		client:     client,
 	}, nil
 }
@@ -51,52 +48,62 @@ func CreateWallet(client *Client) (*Wallet, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate private key: %w", err)
 	}
-
-	address := PrivateKeyToAddress(privateKey)
-
 	return &Wallet{
 		privateKey: privateKey,
-		address:    address,
+		address:    PrivateKeyToAddress(privateKey),
 		client:     client,
 	}, nil
 }
 
-func (w *Wallet) GetAddress() string {
-	return w.address
-}
-
-func (w *Wallet) GetPrivateKey() string {
-	return PrivateKeyToHex(w.privateKey)
-}
+func (w *Wallet) GetAddress() string    { return w.address }
+func (w *Wallet) GetPrivateKey() string { return PrivateKeyToHex(w.privateKey) }
 
 func (w *Wallet) GetBalance(ctx context.Context) (*big.Int, error) {
-	return w.client.Eth().GetBalance(ctx, w.address, "latest")
+	return w.client.Eth().GetBalance(ctx, w.address, BlockLatest)
 }
 
 func (w *Wallet) GetNonce(ctx context.Context) (uint64, error) {
 	return w.client.Eth().GetTransactionCount(ctx, w.address, BlockPending)
 }
 
-func (w *Wallet) SendTransaction(ctx context.Context, opts *TransferOptions) (*SendTransactionResult, error) {
-	if opts.GasLimit == 0 {
-		gasEstimate, err := w.client.Eth().EstimateGas(ctx, map[string]interface{}{
-			"from":  w.address,
-			"to":    opts.To,
-			"value": fmt.Sprintf("0x%x", opts.Value),
-			"data":  fmt.Sprintf("0x%x", opts.Data),
-		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to estimate gas: %w", err)
-		}
-		opts.GasLimit = gasEstimate + (gasEstimate * 10 / 100)
+// resolveGasLimit estimates and sets opts.GasLimit when it is zero.
+func (w *Wallet) resolveGasLimit(ctx context.Context, opts *TransferOptions, bufferPct uint64) error {
+	if opts.GasLimit > 0 {
+		return nil
 	}
+	callObj := map[string]interface{}{
+		"from":  w.address,
+		"to":    opts.To,
+		"value": fmt.Sprintf("0x%x", opts.Value),
+		"data":  fmt.Sprintf("0x%x", opts.Data),
+	}
+	estimate, err := w.client.Eth().EstimateGas(ctx, callObj)
+	if err != nil {
+		return fmt.Errorf("failed to estimate gas: %w", err)
+	}
+	opts.GasLimit = estimate + (estimate * bufferPct / 100)
+	return nil
+}
 
-	if opts.GasPrice == nil {
-		gasPrice, err := w.client.Eth().GetGasPrice(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get gas price: %w", err)
-		}
-		opts.GasPrice = gasPrice
+// resolveGasPrice fetches and sets opts.GasPrice when it is nil.
+func (w *Wallet) resolveGasPrice(ctx context.Context, opts *TransferOptions) error {
+	if opts.GasPrice != nil {
+		return nil
+	}
+	price, err := w.client.Eth().GetGasPrice(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get gas price: %w", err)
+	}
+	opts.GasPrice = price
+	return nil
+}
+
+func (w *Wallet) SendTransaction(ctx context.Context, opts *TransferOptions) (*SendTransactionResult, error) {
+	if err := w.resolveGasLimit(ctx, opts, 10); err != nil {
+		return nil, err
+	}
+	if err := w.resolveGasPrice(ctx, opts); err != nil {
+		return nil, err
 	}
 
 	nonce, err := w.GetNonce(ctx)
@@ -131,37 +138,21 @@ func (w *Wallet) SendTransaction(ctx context.Context, opts *TransferOptions) (*S
 	}, nil
 }
 
-func (w *Wallet) SendEther(ctx context.Context, to string, amountInEther string) (*SendTransactionResult, error) {
+func (w *Wallet) SendEther(ctx context.Context, to, amountInEther string) (*SendTransactionResult, error) {
 	value, err := ToWei(amountInEther, Ether)
 	if err != nil {
 		return nil, fmt.Errorf("invalid ether amount: %w", err)
 	}
-
-	return w.SendTransaction(ctx, &TransferOptions{
-		To:    to,
-		Value: value,
-	})
+	return w.SendTransaction(ctx, &TransferOptions{To: to, Value: value})
 }
 
 func (w *Wallet) SendWei(ctx context.Context, to string, amountInWei *big.Int) (*SendTransactionResult, error) {
-	return w.SendTransaction(ctx, &TransferOptions{
-		To:    to,
-		Value: amountInWei,
-	})
+	return w.SendTransaction(ctx, &TransferOptions{To: to, Value: amountInWei})
 }
 
 func (w *Wallet) SendEIP1559Transaction(ctx context.Context, opts *TransferOptions, maxFeePerGas, maxPriorityFeePerGas *big.Int) (*SendTransactionResult, error) {
-	if opts.GasLimit == 0 {
-		gasEstimate, err := w.client.Eth().EstimateGas(ctx, map[string]interface{}{
-			"from":  w.address,
-			"to":    opts.To,
-			"value": fmt.Sprintf("0x%x", opts.Value),
-			"data":  fmt.Sprintf("0x%x", opts.Data),
-		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to estimate gas: %w", err)
-		}
-		opts.GasLimit = gasEstimate + (gasEstimate * 10 / 100)
+	if err := w.resolveGasLimit(ctx, opts, 10); err != nil {
+		return nil, err
 	}
 
 	nonce, err := w.GetNonce(ctx)
@@ -203,7 +194,6 @@ func (w *Wallet) CallContract(ctx context.Context, contractAddress string, metho
 		"to":   contractAddress,
 		"data": fmt.Sprintf("0x%x", methodData),
 	}
-
 	return w.client.Eth().Call(ctx, callObj, BlockLatest)
 }
 
@@ -215,33 +205,31 @@ func (w *Wallet) SendContractTransaction(ctx context.Context, contractAddress st
 	})
 }
 
-func (w *Wallet) DeployContract(ctx context.Context, bytecode []byte, constructorData []byte, gasLimit uint64, gasPrice *big.Int) (*SendTransactionResult, error) {
-	if gasLimit == 0 {
-		gasEstimate, err := w.client.Eth().EstimateGas(ctx, map[string]interface{}{
-			"from": w.address,
-			"data": fmt.Sprintf("0x%x", append(bytecode, constructorData...)),
-		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to estimate gas: %w", err)
-		}
-		gasLimit = gasEstimate + (gasEstimate * 20 / 100)
-	}
-
-	if gasPrice == nil {
-		price, err := w.client.Eth().GetGasPrice(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get gas price: %w", err)
-		}
-		gasPrice = price
-	}
-
-	return w.SendTransaction(ctx, &TransferOptions{
-		To:       "",
+func (w *Wallet) DeployContract(ctx context.Context, bytecode, constructorData []byte, gasLimit uint64, gasPrice *big.Int) (*SendTransactionResult, error) {
+	deployData := append(bytecode, constructorData...)
+	opts := &TransferOptions{
 		Value:    big.NewInt(0),
 		GasLimit: gasLimit,
 		GasPrice: gasPrice,
-		Data:     append(bytecode, constructorData...),
-	})
+		Data:     deployData,
+	}
+
+	if opts.GasLimit == 0 {
+		callObj := map[string]interface{}{
+			"from": w.address,
+			"data": fmt.Sprintf("0x%x", deployData),
+		}
+		estimate, err := w.client.Eth().EstimateGas(ctx, callObj)
+		if err != nil {
+			return nil, fmt.Errorf("failed to estimate gas: %w", err)
+		}
+		opts.GasLimit = estimate + (estimate * 20 / 100)
+	}
+	if err := w.resolveGasPrice(ctx, opts); err != nil {
+		return nil, err
+	}
+
+	return w.SendTransaction(ctx, opts)
 }
 
 func (w *Wallet) WaitForTransaction(ctx context.Context, txHash string) (*TransactionReceipt, error) {

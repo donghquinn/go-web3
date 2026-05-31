@@ -124,17 +124,14 @@ func PrivateKeyFromHex(hexKey string) (*ecdsa.PrivateKey, error) {
 	if len(hexKey) >= 2 && hexKey[:2] == "0x" {
 		hexKey = hexKey[2:]
 	}
-	
 	privateKeyBytes, err := hex.DecodeString(hexKey)
 	if err != nil {
 		return nil, fmt.Errorf("invalid hex string: %w", err)
 	}
-	
 	privateKey, err := crypto.ToECDSA(privateKeyBytes)
 	if err != nil {
 		return nil, fmt.Errorf("invalid private key: %w", err)
 	}
-	
 	return privateKey, nil
 }
 
@@ -148,8 +145,17 @@ func PrivateKeyToHex(privateKey *ecdsa.PrivateKey) string {
 
 func PrivateKeyToAddress(privateKey *ecdsa.PrivateKey) string {
 	publicKey := privateKey.Public().(*ecdsa.PublicKey)
-	address := crypto.PubkeyToAddress(*publicKey)
-	return address.Hex()
+	return crypto.PubkeyToAddress(*publicKey).Hex()
+}
+
+// hexToAddressPtr converts a hex address string to a *common.Address.
+// Returns nil for an empty string (used for contract deployments).
+func hexToAddressPtr(address string) *common.Address {
+	if address == "" {
+		return nil
+	}
+	addr := common.HexToAddress(address)
+	return &addr
 }
 
 func SignTransaction(tx *TransactionParams, privateKey *ecdsa.PrivateKey) (*SignedTransaction, error) {
@@ -163,15 +169,9 @@ func SignTransaction(tx *TransactionParams, privateKey *ecdsa.PrivateKey) (*Sign
 		return nil, fmt.Errorf("gas limit is required")
 	}
 
-	var toAddr *common.Address
-	if tx.To != "" {
-		addr := common.HexToAddress(tx.To)
-		toAddr = &addr
-	}
-
 	ethTx := types.NewTx(&types.LegacyTx{
 		Nonce:    tx.Nonce,
-		To:       toAddr,
+		To:       hexToAddressPtr(tx.To),
 		Value:    tx.Value,
 		Gas:      tx.Gas,
 		GasPrice: tx.GasPrice,
@@ -209,16 +209,10 @@ func SignEIP1559Transaction(tx *EIP1559TransactionParams, privateKey *ecdsa.Priv
 		return nil, fmt.Errorf("gas limit is required")
 	}
 
-	var toAddr *common.Address
-	if tx.To != "" {
-		addr := common.HexToAddress(tx.To)
-		toAddr = &addr
-	}
-
 	ethTx := types.NewTx(&types.DynamicFeeTx{
 		ChainID:   tx.ChainID,
 		Nonce:     tx.Nonce,
-		To:        toAddr,
+		To:        hexToAddressPtr(tx.To),
 		Value:     tx.Value,
 		Gas:       tx.Gas,
 		GasTipCap: tx.MaxPriorityFeePerGas,
@@ -243,22 +237,19 @@ func SignEIP1559Transaction(tx *EIP1559TransactionParams, privateKey *ecdsa.Priv
 	}, nil
 }
 
-func CreateContractDeployment(bytecode []byte, constructorData []byte, privateKey *ecdsa.PrivateKey, params *TransactionParams) (*SignedTransaction, error) {
+func CreateContractDeployment(bytecode, constructorData []byte, privateKey *ecdsa.PrivateKey, params *TransactionParams) (*SignedTransaction, error) {
 	params.To = ""
-	
 	if constructorData != nil {
 		params.Data = append(bytecode, constructorData...)
 	} else {
 		params.Data = bytecode
 	}
-
 	return SignTransaction(params, privateKey)
 }
 
 func CreateContractCall(contractAddress string, methodData []byte, privateKey *ecdsa.PrivateKey, params *TransactionParams) (*SignedTransaction, error) {
 	params.To = contractAddress
 	params.Data = methodData
-
 	return SignTransaction(params, privateKey)
 }
 
@@ -266,15 +257,13 @@ func RecoverSigner(rawTxHex string) (string, error) {
 	if len(rawTxHex) >= 2 && rawTxHex[:2] == "0x" {
 		rawTxHex = rawTxHex[2:]
 	}
-
 	rawTxBytes, err := hex.DecodeString(rawTxHex)
 	if err != nil {
 		return "", fmt.Errorf("invalid hex string: %w", err)
 	}
 
 	var tx types.Transaction
-	err = rlp.DecodeBytes(rawTxBytes, &tx)
-	if err != nil {
+	if err := rlp.DecodeBytes(rawTxBytes, &tx); err != nil {
 		return "", fmt.Errorf("failed to decode transaction: %w", err)
 	}
 
@@ -289,17 +278,10 @@ func RecoverSigner(rawTxHex string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to recover sender: %w", err)
 	}
-
 	return sender.Hex(), nil
 }
 
 func EncodeABI(methodSignature string, params ...interface{}) ([]byte, error) {
-	// Convert params to slice for go-blockchain-helper
-	paramSlice := make([]interface{}, len(params))
-	copy(paramSlice, params)
-	
-	// Create basic ABI params - this is a simplified approach
-	// In a real implementation, you would parse the method signature to determine types
 	abiParams := make([]blockchainhelper.ABIParam, len(params))
 	for i, param := range params {
 		switch param.(type) {
@@ -321,9 +303,7 @@ func EncodeABI(methodSignature string, params ...interface{}) ([]byte, error) {
 			return nil, fmt.Errorf("unsupported parameter type: %T", param)
 		}
 	}
-	
-	// Use go-blockchain-helper for ABI encoding
-	return blockchainhelper.EncodeFunctionCall(methodSignature, abiParams, paramSlice)
+	return blockchainhelper.EncodeFunctionCall(methodSignature, abiParams, params)
 }
 
 func RandomNonce() uint64 {
