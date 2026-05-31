@@ -2,31 +2,30 @@
 [![Test](https://github.com/donghquinn/go-web3/actions/workflows/test.yml/badge.svg)](https://github.com/donghquinn/go-web3/actions/workflows/test.yml)
 [![codecov](https://codecov.io/gh/donghquinn/go-web3/branch/main/graph/badge.svg)](https://codecov.io/gh/donghquinn/go-web3)
 
-A comprehensive Go library for interacting with Ethereum blockchain through JSON-RPC APIs, designed with web3.js-like interface for familiar usage patterns.
+A comprehensive Go library for interacting with the Ethereum blockchain through JSON-RPC APIs, designed with a web3.js-like interface for familiar usage patterns.
 
-## 🚀 Features
+## Features
 
-- **Complete Ethereum JSON-RPC Implementation**: All major eth_* methods supported
+- **Complete Ethereum JSON-RPC**: All major `eth_*`, `net_*`, and `web3_*` methods
 - **EIP-1559 Support**: Fee history, max priority fee, and type-2 transaction signing
 - **EIP-4844 Awareness**: Blob gas fields included in fee history responses
 - **Event Log Queries**: Filter contract events with `eth_getLogs`
 - **Contract Inspection**: Read bytecode and storage slots at any block
-- **Network & Chain Info**: Chain ID, net version, and client version queries
-- **Pending Transaction Support**: Monitor mempool, get pending transactions by account
+- **Pending Transaction Support**: Monitor mempool and get pending transactions by account
 - **Context-Aware Operations**: Proper context handling for timeouts and cancellation
 - **Type-Safe Structures**: Strongly-typed transaction, block, receipt, log, and fee objects
-- **Web3.js-Like API**: Familiar method names and usage patterns for JavaScript developers
 - **Built-in Utilities**: Wei/Ether conversion, address validation, hex operations
 - **Robust Error Handling**: Detailed RPC error information with proper Go error wrapping
 - **Production Ready**: Thread-safe client with connection pooling
+- **High Test Coverage**: 97%+ test coverage via `httptest`-based mock RPC servers
 
-## 📦 Installation
+## Installation
 
 ```bash
 go get github.com/donghquinn/go-web3
 ```
 
-## 🏃‍♂️ Quick Start
+## Quick Start
 
 ```go
 package main
@@ -36,438 +35,182 @@ import (
     "fmt"
     "log"
     "time"
-    
+
     "github.com/donghquinn/go-web3"
 )
 
 func main() {
-    // Create a new client with your Ethereum RPC endpoint
     client := web3.NewClient("https://eth-mainnet.alchemyapi.io/v2/YOUR_API_KEY")
-    
-    // Create context with timeout
+
     ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
     defer cancel()
-    
-    // Get latest block number
+
     blockNumber, err := client.Eth().GetBlockNumber(ctx)
     if err != nil {
         log.Fatal(err)
     }
     fmt.Printf("Latest block: %d\n", blockNumber)
-    
-    // Check account balance
+
     address := "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"
-    balance, err := client.Eth().GetBalance(ctx, address, "latest")
+    balance, err := client.Eth().GetBalance(ctx, address, web3.BlockLatest)
     if err != nil {
         log.Fatal(err)
     }
-    
-    // Convert Wei to Ether for display
-    balanceEth, _ := web3.FromWei(balance, "ether")
+
+    balanceEth, _ := web3.FromWei(balance, web3.Ether)
     fmt.Printf("Balance: %s ETH\n", balanceEth)
 }
 ```
 
-## 📖 Detailed Usage Guide
+## API Reference
 
-### Client Configuration
+### Creating a Client
 
-#### Basic Client
-```go
-client := web3.NewClient("https://mainnet.infura.io/v3/YOUR_PROJECT_ID")
-```
-
-#### Client with Custom HTTP Client
-```go
-import (
-    "net/http"
-    "time"
-)
-
-httpClient := &http.Client{
-    Timeout: 30 * time.Second,
-    Transport: &http.Transport{
-        MaxIdleConns:        100,
-        MaxIdleConnsPerHost: 10,
-    },
-}
-
-client := web3.NewClient("https://mainnet.infura.io/v3/YOUR_PROJECT_ID")
-// Note: Custom HTTP client configuration would require extending the library
-```
-
-### Context Usage
-
-Always use context for proper timeout and cancellation handling:
-
-```go
-// Context with timeout
-ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-defer cancel()
-
-// Context with deadline
-deadline := time.Now().Add(1 * time.Minute)
-ctx, cancel := context.WithDeadline(context.Background(), deadline)
-defer cancel()
-
-// Cancellable context
-ctx, cancel := context.WithCancel(context.Background())
-// Call cancel() when needed
-```
-
-## 📚 Complete API Reference
-
-### Client Methods
-
-#### Creating a Client
 ```go
 client := web3.NewClient("YOUR_ETHEREUM_RPC_URL")
 
 // Popular RPC endpoints:
 // Mainnet: "https://mainnet.infura.io/v3/YOUR_PROJECT_ID"
-// Goerli: "https://goerli.infura.io/v3/YOUR_PROJECT_ID"
 // Alchemy: "https://eth-mainnet.alchemyapi.io/v2/YOUR_API_KEY"
-// Local: "http://localhost:8545"
+// Local:   "http://localhost:8545"
 ```
 
-### Ethereum Methods (client.Eth())
+### Account & Balance Operations
 
-#### 💰 Account & Balance Operations
-
-##### Get Balance
 ```go
 // Get balance in Wei
-balance, err := client.Eth().GetBalance(ctx, address, "latest")
-if err != nil {
-    log.Fatal(err)
-}
+balance, err := client.Eth().GetBalance(ctx, address, web3.BlockLatest)
 
 // Convert to Ether for display
-balanceEth, _ := web3.FromWei(balance, "ether")
+balanceEth, _ := web3.FromWei(balance, web3.Ether)
 fmt.Printf("Balance: %s ETH\n", balanceEth)
 
-// Block parameters: "latest", "earliest", "pending", or hex block number
-balance, err := client.Eth().GetBalance(ctx, address, "0x1b4") // specific block
+// At a specific block
+balance, err = client.Eth().GetBalance(ctx, address, web3.BlockNumber(18000000))
+
+// Get nonce (transaction count)
+nonce, err := client.Eth().GetTransactionCount(ctx, address, web3.BlockLatest)
+
+// Pending nonce (for rapid transaction sending)
+pendingNonce, err := client.Eth().GetTransactionCount(ctx, address, web3.BlockPending)
 ```
 
-##### Get Transaction Count (Nonce)
+### Block Operations
+
 ```go
-// Get nonce for transaction
-nonce, err := client.Eth().GetTransactionCount(ctx, address, "latest")
-if err != nil {
-    log.Fatal(err)
-}
-fmt.Printf("Next nonce: %d\n", nonce)
-
-// For pending transactions (useful for rapid transaction sending)
-pendingNonce, err := client.Eth().GetTransactionCount(ctx, address, "pending")
-```
-
-#### 🔗 Block Operations
-
-##### Get Current Block Number
-```go
+// Latest block number
 blockNumber, err := client.Eth().GetBlockNumber(ctx)
-if err != nil {
-    log.Fatal(err)
-}
-fmt.Printf("Latest block: %d\n", blockNumber)
+
+// Block by number (false = no full tx bodies)
+block, err := client.Eth().GetBlockByNumber(ctx, web3.BlockLatest, false)
+fmt.Printf("Hash: %s, GasUsed: %s\n", block.Hash, block.GasUsed)
+
+// Block with full transaction details
+block, err = client.Eth().GetBlockByNumber(ctx, web3.BlockLatest, true)
+
+// Block by hash
+block, err = client.Eth().GetBlockByHash(ctx, "0xabc...", false)
 ```
 
-##### Get Block by Number
+### Transaction Operations
+
 ```go
-// Get block without full transaction details
-block, err := client.Eth().GetBlockByNumber(ctx, "latest", false)
-if err != nil {
-    log.Fatal(err)
-}
+// Get transaction by hash
+tx, err := client.Eth().GetTransactionByHash(ctx, "0xabc...")
+fmt.Printf("From: %s, To: %s, Value: %s\n", tx.From, tx.To, tx.Value)
 
-fmt.Printf("Block Hash: %s\n", block.Hash)
-fmt.Printf("Miner: %s\n", block.Miner)
-fmt.Printf("Gas Used: %s\n", block.GasUsed)
-fmt.Printf("Timestamp: %s\n", block.Timestamp)
-fmt.Printf("Transaction count: %d\n", len(block.Transactions))
-
-// Get block with full transaction details
-blockWithTxs, err := client.Eth().GetBlockByNumber(ctx, "latest", true)
-```
-
-##### Get Block by Hash
-```go
-blockHash := "0x1234567890abcdef..."
-block, err := client.Eth().GetBlockByHash(ctx, blockHash, false)
-if err != nil {
-    log.Fatal(err)
-}
-```
-
-#### 💸 Transaction Operations
-
-##### Get Transaction by Hash
-```go
-txHash := "0xabcdef1234567890..."
-tx, err := client.Eth().GetTransactionByHash(ctx, txHash)
-if err != nil {
-    log.Fatal(err)
-}
-
-fmt.Printf("From: %s\n", tx.From)
-fmt.Printf("To: %s\n", tx.To)
-fmt.Printf("Value: %s\n", tx.Value)
-fmt.Printf("Gas: %s\n", tx.Gas)
-fmt.Printf("Gas Price: %s\n", tx.GasPrice)
-```
-
-##### Get Transaction Receipt
-```go
-txHash := "0xabcdef1234567890..."
-receipt, err := client.Eth().GetTransactionReceipt(ctx, txHash)
-if err != nil {
-    log.Fatal(err)
-}
-
-// Check if transaction was successful
+// Get receipt
+receipt, err := client.Eth().GetTransactionReceipt(ctx, "0xabc...")
 if receipt.Status == "0x1" {
     fmt.Println("Transaction successful")
-} else {
-    fmt.Println("Transaction failed")
 }
 
-fmt.Printf("Gas Used: %s\n", receipt.GasUsed)
-fmt.Printf("Block Number: %s\n", receipt.BlockNumber)
+// Send pre-signed raw transaction
+txHash, err := client.Eth().SendRawTransaction(ctx, "0xf86c...")
 ```
 
-##### Send Raw Transaction
-```go
-// Send a pre-signed transaction
-signedTxHex := "0xf86c808504a817c800825208940xd8da6bf26964af9d7eed9e03e53415d37aa96045880de0b6b3a764000080820a95a0..."
-txHash, err := client.Eth().SendRawTransaction(ctx, signedTxHex)
-if err != nil {
-    log.Fatal(err)
-}
-fmt.Printf("Transaction sent: %s\n", txHash)
-```
+### Pending Transaction Operations
 
-#### 🔄 Pending Transaction Operations
-
-##### Get All Pending Transactions
 ```go
-// Get all pending transactions from mempool
+// All pending transactions in mempool
 pendingTxs, err := client.Eth().GetPendingTransactions(ctx)
-if err != nil {
-    log.Fatal(err)
-}
 
-fmt.Printf("Found %d pending transactions\n", len(pendingTxs))
-for _, tx := range pendingTxs {
-    fmt.Printf("Hash: %s, From: %s, To: %s\n", tx.Hash, tx.From, tx.To)
-    
-    // Convert gas price to Gwei for readability
-    if tx.GasPrice != "" {
-        gasPriceWei, _ := web3.FromHex(tx.GasPrice)
-        gasPriceGwei, _ := web3.WeiToGwei(gasPriceWei)
-        fmt.Printf("Gas Price: %s Gwei\n", gasPriceGwei)
-    }
-}
-```
-
-##### Get Pending Transaction Count
-```go
-// Get total number of pending transactions
+// Pending transaction count
 count, err := client.Eth().GetPendingTransactionCount(ctx)
-if err != nil {
-    log.Fatal(err)
-}
-fmt.Printf("Pending transactions in mempool: %d\n", count)
-```
 
-##### Get Account Pending Transactions
-```go
-// Get pending transactions for a specific account
-address := "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"
+// Pending transactions for a specific account (from or to)
 accountTxs, err := client.Eth().GetAccountPendingTransactions(ctx, address)
-if err != nil {
-    log.Fatal(err)
-}
 
-fmt.Printf("Found %d pending transactions for %s\n", len(accountTxs), address)
-for _, tx := range accountTxs {
-    fmt.Printf("Hash: %s, Value: %s\n", tx.Hash, tx.Value)
-}
-```
-
-##### Check if Transaction is Pending
-```go
-// Check if a specific transaction hash is in the pending pool
-txHash := "0xabcdef1234567890..."
+// Check if a transaction is pending
 isPending, err := client.Eth().IsPendingTransaction(ctx, txHash)
-if err != nil {
-    log.Fatal(err)
-}
-
-if isPending {
-    fmt.Printf("Transaction %s is still pending\n", txHash)
-} else {
-    fmt.Printf("Transaction %s is not in pending pool\n", txHash)
-}
 ```
 
-#### ⛽ Gas Operations
+### Gas Operations
 
-##### Get Gas Price
 ```go
+// Current gas price
 gasPrice, err := client.Eth().GetGasPrice(ctx)
-if err != nil {
-    log.Fatal(err)
-}
+gasPriceGwei, _ := web3.FromWei(gasPrice, web3.Gwei)
+fmt.Printf("Gas price: %s Gwei\n", gasPriceGwei)
 
-// Convert to Gwei for display
-gasPriceGwei, _ := web3.FromWei(gasPrice, "gwei")
-fmt.Printf("Current gas price: %s Gwei\n", gasPriceGwei)
-```
-
-##### Get Max Priority Fee Per Gas (EIP-1559)
-```go
-// The recommended tip (priority fee) for the next block
+// EIP-1559: suggested tip
 tip, err := client.Eth().GetMaxPriorityFeePerGas(ctx)
-if err != nil {
-    log.Fatal(err)
-}
 
-tipGwei, _ := web3.FromWei(tip, web3.Gwei)
-fmt.Printf("Suggested tip: %s Gwei\n", tipGwei)
-```
-
-##### Get Fee History (EIP-1559)
-```go
-// Fetch the last 10 blocks' base fees, gas ratios, and 25th/75th percentile priority fees
+// Fee history for last 10 blocks
 feeHistory, err := client.Eth().GetFeeHistory(ctx, 10, web3.BlockLatest, []float64{25, 75})
-if err != nil {
-    log.Fatal(err)
-}
-
-fmt.Printf("Oldest block: %s\n", feeHistory.OldestBlock)
 for i, baseFee := range feeHistory.BaseFeePerGas {
     fmt.Printf("Block +%d base fee: %s\n", i, baseFee)
 }
 
-// EIP-4844 blob gas (non-nil on post-Cancun nodes)
-if len(feeHistory.BaseFeePerBlobGas) > 0 {
-    fmt.Printf("Blob base fee: %s\n", feeHistory.BaseFeePerBlobGas[0])
-}
+// Estimate gas for a transaction
+gasEstimate, err := client.Eth().EstimateGas(ctx, map[string]interface{}{
+    "from":  "0xSENDER",
+    "to":    "0xRECIPIENT",
+    "value": "0xde0b6b3a7640000", // 1 ETH
+})
 ```
 
-##### Estimate Gas
+### Contract Interaction
+
 ```go
-// Create transaction object
-txObj := map[string]interface{}{
-    "from":  "0x742d35Cc6084C0532C9d2b908B8C0c9ff3e3ba0A",
-    "to":    "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
-    "value": "0xde0b6b3a7640000", // 1 ETH in wei
-}
-
-gasEstimate, err := client.Eth().EstimateGas(ctx, txObj)
-if err != nil {
-    log.Fatal(err)
-}
-fmt.Printf("Estimated gas: %d\n", gasEstimate)
-```
-
-#### 📞 Contract Interaction
-
-##### Call Contract Method
-```go
-// Call a contract method (read-only)
+// Read-only contract call
 callObj := map[string]interface{}{
-    "to":   "0xA0b86a33E6417c48cd7a94Ca95e70aD2c51e74f7", // contract address
-    "data": "0x70a08231000000000000000000000000d8da6bf26964af9d7eed9e03e53415d37aa96045", // balanceOf call
+    "to":   "0xCONTRACT",
+    "data": "0x70a08231000000000000000000000000d8da6bf26964af9d7eed9e03e53415d37aa96045",
 }
-
 result, err := client.Eth().Call(ctx, callObj, web3.BlockLatest)
-if err != nil {
-    log.Fatal(err)
+
+// Get contract bytecode
+code, err := client.Eth().GetCode(ctx, "0xCONTRACT", web3.BlockLatest)
+if code == "0x" {
+    fmt.Println("Not a contract")
 }
-fmt.Printf("Contract call result: %s\n", result)
+
+// Read storage slot
+slot, err := client.Eth().GetStorageAt(ctx, "0xCONTRACT", "0x0", web3.BlockLatest)
 ```
 
-##### Get Contract Bytecode
+### Event Logs
+
 ```go
-// Returns "0x" for EOAs, bytecode hex for contracts
-code, err := client.Eth().GetCode(ctx, "0xA0b86a33E6417c48cd7a94Ca95e70aD2c51e74f7", web3.BlockLatest)
-if err != nil {
-    log.Fatal(err)
-}
-
-if code == "0x" || code == "" {
-    fmt.Println("Address is not a contract")
-} else {
-    fmt.Printf("Contract bytecode length: %d bytes\n", (len(code)-2)/2)
-}
-```
-
-##### Read Contract Storage Slot
-```go
-// Read a raw storage slot (position as 32-byte hex quantity)
-value, err := client.Eth().GetStorageAt(ctx,
-    "0xA0b86a33E6417c48cd7a94Ca95e70aD2c51e74f7",
-    "0x0", // slot 0
-    web3.BlockLatest,
-)
-if err != nil {
-    log.Fatal(err)
-}
-fmt.Printf("Storage slot 0: %s\n", value)
-```
-
-#### 📋 Event Logs
-
-##### Query Event Logs
-```go
-// Filter Transfer events from an ERC-20 contract
+// Filter Transfer events
 filter := web3.LogFilter{
-    Address:   "0xA0b86a33E6417c48cd7a94Ca95e70aD2c51e74f7",
+    Address:   "0xCONTRACT",
     FromBlock: web3.BlockNumber(18000000),
     ToBlock:   web3.BlockLatest,
     Topics: []interface{}{
-        "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef", // Transfer(address,address,uint256)
+        "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef", // Transfer
     },
 }
-
 logs, err := client.Eth().GetLogs(ctx, filter)
-if err != nil {
-    log.Fatal(err)
-}
 
-for _, log := range logs {
-    fmt.Printf("Block: %s  Tx: %s  LogIndex: %s\n", log.BlockNumber, log.TransactionHash, log.LogIndex)
-    fmt.Printf("Topics: %v\n", log.Topics)
-    fmt.Printf("Data: %s\n", log.Data)
-}
-```
-
-##### Filter by Block Hash
-```go
-// Get all logs in a specific block
-filter := web3.LogFilter{
-    BlockHash: "0xabc123...",
-}
-
-logs, err := client.Eth().GetLogs(ctx, filter)
-```
-
-##### Multi-Address and OR-Topic Filter
-```go
-// Multiple addresses, OR-topic matching
-filter := web3.LogFilter{
-    Address: []string{
-        "0xContractA...",
-        "0xContractB...",
-    },
+// Multi-address, OR-topic filter
+filter = web3.LogFilter{
+    Address: []string{"0xContractA", "0xContractB"},
     Topics: []interface{}{
-        // topic[0]: must match one of these two event signatures
         []string{
-            "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef", // Transfer
-            "0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925", // Approval
+            "0xddf252ad...", // Transfer
+            "0x8c5be1e5...", // Approval
         },
     },
     FromBlock: web3.BlockLatest,
@@ -475,363 +218,149 @@ filter := web3.LogFilter{
 }
 ```
 
-#### 🌐 Network & Chain Info
+### Network Info
 
-##### Get Chain ID
 ```go
 chainID, err := client.Eth().GetChainID(ctx)
-if err != nil {
-    log.Fatal(err)
-}
-fmt.Printf("Chain ID: %s\n", chainID.String()) // e.g. "1" for mainnet
-```
+fmt.Printf("Chain ID: %s\n", chainID.String()) // "1" for mainnet
 
-##### Get Network Version
-```go
-// Returns the network ID as a decimal string (e.g. "1" for mainnet)
 netVersion, err := client.Eth().GetNetVersion(ctx)
-if err != nil {
-    log.Fatal(err)
-}
-fmt.Printf("Network version: %s\n", netVersion)
-```
 
-##### Get Client Version
-```go
-// Returns the connected node's client version string
 clientVersion, err := client.Eth().GetClientVersion(ctx)
-if err != nil {
-    log.Fatal(err)
-}
-fmt.Printf("Client: %s\n", clientVersion) // e.g. "Geth/v1.13.0/.../go1.21.0"
+fmt.Printf("Client: %s\n", clientVersion) // e.g. "Geth/v1.13.0/..."
 ```
 
-#### ⛽ Gas Operations
+---
 
-## 💰 Transaction Management
+## Transaction Management
 
-### Creating and Managing Wallets
+### Wallet
 
-#### Generate New Wallet
-```go
-// Create a new random wallet
-wallet, err := web3.CreateWallet(client)
-if err != nil {
-    log.Fatal(err)
-}
-
-fmt.Printf("Address: %s\n", wallet.GetAddress())
-fmt.Printf("Private Key: %s\n", wallet.GetPrivateKey()) // Keep this secure!
-```
-
-#### Load Existing Wallet
 ```go
 // Load wallet from private key
-privateKey := "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
-wallet, err := web3.NewWallet(privateKey, client)
-if err != nil {
-    log.Fatal(err)
-}
+wallet, err := web3.NewWallet("0xPRIVATE_KEY", client)
 
-// Check wallet balance
+// Generate a new random wallet
+wallet, err = web3.CreateWallet(client)
+fmt.Printf("Address:     %s\n", wallet.GetAddress())
+fmt.Printf("Private Key: %s\n", wallet.GetPrivateKey()) // keep secure!
+
+// Check balance
 balance, err := wallet.GetBalance(ctx)
-if err != nil {
-    log.Fatal(err)
-}
 
-balanceEth, _ := web3.FromWei(balance, "ether")
-fmt.Printf("Balance: %s ETH\n", balanceEth)
+// Get nonce
+nonce, err := wallet.GetNonce(ctx)
 ```
 
-### Building and Signing Transactions
+### Sending ETH
 
-#### Legacy Transaction (Pre-EIP-1559)
 ```go
-// Create transaction parameters
-txParams := web3.NewTransactionParams().
-    SetTo("0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045").
-    SetValueInEther("0.1").           // Send 0.1 ETH
-    SetGas(21000).                    // Standard transfer gas limit
-    SetGasPriceInGwei("20").          // 20 Gwei gas price
-    SetNonce(42).                     // Transaction nonce
-    SetChainID(big.NewInt(1))         // Mainnet chain ID
+// Simple ETH transfer (gas estimated automatically)
+result, err := wallet.SendEther(ctx, "0xRECIPIENT", "1.5")
+fmt.Printf("TxHash: %s\n", result.TransactionHash)
 
-// Sign the transaction
-privateKey, err := web3.PrivateKeyFromHex("0x...")
-if err != nil {
-    log.Fatal(err)
-}
+// Send wei directly
+result, err = wallet.SendWei(ctx, "0xRECIPIENT", big.NewInt(1000))
 
-signedTx, err := web3.SignTransaction(txParams, privateKey)
-if err != nil {
-    log.Fatal(err)
-}
+// Custom gas settings
+result, err = wallet.SendTransaction(ctx, &web3.TransferOptions{
+    To:       "0xRECIPIENT",
+    Value:    big.NewInt(1e18),
+    GasLimit: 25000,
+    GasPrice: big.NewInt(25e9),
+})
 
-fmt.Printf("Transaction Hash: %s\n", signedTx.Hash)
-fmt.Printf("Raw Transaction: %s\n", signedTx.Raw)
+// EIP-1559 transaction
+maxFee, _ := web3.ToWei("50", web3.Gwei)
+tip, _ := web3.ToWei("3", web3.Gwei)
+result, err = wallet.SendEIP1559Transaction(ctx, &web3.TransferOptions{
+    To:    "0xRECIPIENT",
+    Value: big.NewInt(0),
+}, maxFee, tip)
 ```
 
-#### EIP-1559 Transaction (Type 2)
+### Smart Contracts
+
 ```go
-// Create EIP-1559 transaction parameters
-eip1559Params := web3.NewEIP1559TransactionParams()
-eip1559Params.To = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"
-eip1559Params.Value, _ = web3.ToWei("0.05", "ether")
-eip1559Params.Gas = 21000
-eip1559Params.MaxFeePerGas, _ = web3.ToWei("30", "gwei")         // Maximum fee per gas
-eip1559Params.MaxPriorityFeePerGas, _ = web3.ToWei("2", "gwei")  // Tip to miners
-eip1559Params.Nonce = 43
-eip1559Params.ChainID = big.NewInt(1)
-
-// Sign EIP-1559 transaction
-signedTx, err := web3.SignEIP1559Transaction(eip1559Params, privateKey)
-if err != nil {
-    log.Fatal(err)
-}
-```
-
-### High-Level Transaction Methods
-
-#### Send Ether
-```go
-// Send ETH using wallet (handles nonce, gas estimation automatically)
-result, err := wallet.SendEther(ctx, "0xRECIPIENT_ADDRESS", "1.5")
-if err != nil {
-    log.Fatal(err)
-}
-
-fmt.Printf("Transaction sent: %s\n", result.TransactionHash)
-fmt.Printf("From: %s\n", result.From)
-fmt.Printf("To: %s\n", result.To)
-```
-
-#### Send with Custom Options
-```go
-// Send with custom gas settings
-transferOpts := &web3.TransferOptions{
-    To:       "0xRECIPIENT_ADDRESS",
-    Value:    web3.ToWei("2.0", "ether"),
-    GasLimit: 25000,                           // Custom gas limit
-    GasPrice: web3.ToWei("25", "gwei"),        // Custom gas price
-    Data:     []byte("Hello Ethereum!"),       // Optional data
-}
-
-result, err := wallet.SendTransaction(ctx, transferOpts)
-if err != nil {
-    log.Fatal(err)
-}
-```
-
-#### Send EIP-1559 Transaction
-```go
-maxFee, _ := web3.ToWei("50", "gwei")
-priorityFee, _ := web3.ToWei("3", "gwei")
-
-result, err := wallet.SendEIP1559Transaction(ctx, transferOpts, maxFee, priorityFee)
-if err != nil {
-    log.Fatal(err)
-}
-```
-
-### Smart Contract Interactions
-
-#### Contract Method Calls (Read-Only)
-```go
-// Call a contract method (no transaction, no gas cost)
-contractAddress := "0xA0b86a33E6417c48cd7a94Ca95e70aD2c51e74f7"
-
-// Example: balanceOf(address) call
+// Read-only call via wallet
 balanceOfData, err := web3.EncodeABI("balanceOf(address)", wallet.GetAddress())
-if err != nil {
-    log.Fatal(err)
-}
+result, err := wallet.CallContract(ctx, "0xCONTRACT", balanceOfData)
 
-result, err := wallet.CallContract(ctx, contractAddress, balanceOfData)
-if err != nil {
-    log.Fatal(err)
-}
-fmt.Printf("Token balance (hex): %s\n", result)
-```
+// State-changing transaction
+transferData, err := web3.EncodeABI("transfer(address,uint256)",
+    "0xRECIPIENT",
+    big.NewInt(100e18),
+)
+result, err = wallet.SendContractTransaction(ctx, "0xCONTRACT", transferData, big.NewInt(0))
 
-#### Contract Transactions (State-Changing)
-```go
-// Example: ERC-20 transfer
-recipientAddress := "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"
-transferAmount := web3.ToWei("100", "ether") // 100 tokens (assuming 18 decimals)
+// Contract deployment (gasLimit=0 triggers estimation)
+result, err = wallet.DeployContract(ctx, bytecode, constructorArgs, 0, nil)
+fmt.Printf("Deploy tx: %s\n", result.TransactionHash)
 
-// Encode transfer(address,uint256) function call
-transferData, err := web3.EncodeABI("transfer(address,uint256)", recipientAddress, transferAmount)
-if err != nil {
-    log.Fatal(err)
-}
-
-// Send contract transaction
-result, err := wallet.SendContractTransaction(ctx, contractAddress, transferData, big.NewInt(0))
-if err != nil {
-    log.Fatal(err)
-}
-
-fmt.Printf("Token transfer transaction: %s\n", result.TransactionHash)
-```
-
-#### Contract Deployment
-```go
-// Deploy a smart contract
-contractBytecode := []byte{0x60, 0x80, 0x60, 0x40, /* ... contract bytecode ... */}
-constructorArgs := []byte{/* encoded constructor parameters */}
-
-result, err := wallet.DeployContract(ctx, contractBytecode, constructorArgs, 500000, nil)
-if err != nil {
-    log.Fatal(err)
-}
-
-fmt.Printf("Contract deployment transaction: %s\n", result.TransactionHash)
-
-// Wait for deployment confirmation
+// Wait for receipt
 receipt, err := wallet.WaitForTransaction(ctx, result.TransactionHash)
-if err != nil {
-    log.Fatal(err)
-}
-
 if receipt.ContractAddress != "" {
-    fmt.Printf("Contract deployed at: %s\n", receipt.ContractAddress)
+    fmt.Printf("Deployed at: %s\n", receipt.ContractAddress)
 }
 ```
 
-### Transaction Monitoring
+### Building and Signing Transactions Manually
 
-#### Wait for Transaction Confirmation
 ```go
-// Wait for transaction to be mined
-ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-defer cancel()
-
-receipt, err := wallet.WaitForTransaction(ctx, txHash)
-if err != nil {
-    log.Fatal(err)
-}
-
-// Check transaction status
-if receipt.Status == "0x1" {
-    fmt.Println("✅ Transaction successful!")
-    fmt.Printf("Gas used: %s\n", receipt.GasUsed)
-    fmt.Printf("Block number: %s\n", receipt.BlockNumber)
-} else {
-    fmt.Println("❌ Transaction failed!")
-}
-```
-
-### Advanced Transaction Features
-
-#### Batch Operations
-```go
-// Send multiple transactions concurrently
-addresses := []string{
-    "0xRecipient1...",
-    "0xRecipient2...",
-    "0xRecipient3...",
-}
-
-type TxResult struct {
-    Address string
-    TxHash  string
-    Error   error
-}
-
-results := make(chan TxResult, len(addresses))
-
-for _, addr := range addresses {
-    go func(recipient string) {
-        result, err := wallet.SendEther(ctx, recipient, "0.01")
-        if err != nil {
-            results <- TxResult{recipient, "", err}
-            return
-        }
-        results <- TxResult{recipient, result.TransactionHash, nil}
-    }(addr)
-}
-
-// Collect results
-for i := 0; i < len(addresses); i++ {
-    result := <-results
-    if result.Error != nil {
-        fmt.Printf("❌ Failed to send to %s: %v\n", result.Address, result.Error)
-    } else {
-        fmt.Printf("✅ Sent to %s: %s\n", result.Address, result.TxHash)
-    }
-}
-```
-
-#### Gas Estimation and Optimization
-```go
-// Get optimal gas price with buffer
-currentGas, err := client.Eth().GetGasPrice(ctx)
-if err != nil {
-    log.Fatal(err)
-}
-
-// Add 10% buffer for faster confirmation
-buffer := new(big.Int).Div(currentGas, big.NewInt(10))
-optimalGas := new(big.Int).Add(currentGas, buffer)
-
-fmt.Printf("Optimal gas price: %s Gwei\n", 
-    web3.FromWei(optimalGas, "gwei"))
-
-// Use in transaction
+// Legacy (pre-EIP-1559)
 txParams := web3.NewTransactionParams().
-    SetTo("0x...").
-    SetValueInEther("1.0").
-    SetGasPrice(optimalGas)
+    SetTo("0xRECIPIENT").
+    SetValueInEther("0.1").
+    SetGas(web3.GasLimitTransfer.Uint64()).
+    SetGasPriceInGwei("20").
+    SetNonce(42).
+    SetChainID(web3.ChainMainnet)
+
+privateKey, err := web3.PrivateKeyFromHex("0xPRIVATE_KEY")
+signedTx, err := web3.SignTransaction(txParams, privateKey)
+fmt.Printf("Hash: %s\nRaw:  %s\n", signedTx.Hash, signedTx.Raw)
+
+// EIP-1559 (type 2)
+eip1559 := web3.NewEIP1559TransactionParams()
+eip1559.To = "0xRECIPIENT"
+eip1559.Gas = 21000
+eip1559.MaxFeePerGas, _ = web3.ToWei("30", web3.Gwei)
+eip1559.MaxPriorityFeePerGas, _ = web3.ToWei("2", web3.Gwei)
+eip1559.Nonce = 43
+eip1559.ChainID = web3.ChainMainnet.BigInt()
+
+signedTx, err = web3.SignEIP1559Transaction(eip1559, privateKey)
+
+// Contract deployment (empty To = contract creation)
+signed, err := web3.CreateContractDeployment(bytecode, constructorData, privateKey, txParams)
+
+// Contract call
+signed, err = web3.CreateContractCall("0xCONTRACT", methodData, privateKey, txParams)
+
+// Recover signer from raw tx
+signer, err := web3.RecoverSigner("0xf86c...")
 ```
 
-#### Transaction Recovery
-```go
-// Recover the signer address from a raw transaction
-rawTxHex := "0xf86c808504a817c800825208940x..."
-signerAddress, err := web3.RecoverSigner(rawTxHex)
-if err != nil {
-    log.Fatal(err)
-}
+---
 
-fmt.Printf("Transaction was signed by: %s\n", signerAddress)
-```
-
-## 🎯 Typed Constants & Enums
-
-The library eliminates hardcoded strings with comprehensive typed constants for better type safety and IDE support.
+## Typed Constants
 
 ### Block Parameters
 
-Use typed block parameters instead of strings:
-
 ```go
-// Instead of hardcoded strings
-balance, err := client.Eth().GetBalance(ctx, address, "latest")
-
-// Use typed constants
-balance, err := client.Eth().GetBalance(ctx, address, web3.BlockLatest)
-balance, err := client.Eth().GetBalance(ctx, address, web3.BlockPending)
-balance, err := client.Eth().GetBalance(ctx, address, web3.BlockEarliest)
-
-// For specific block numbers
-blockParam := web3.BlockNumber(18500000)
-balance, err := client.Eth().GetBalance(ctx, address, blockParam)
+web3.BlockLatest    // "latest"
+web3.BlockPending   // "pending"
+web3.BlockEarliest  // "earliest"
+web3.BlockNumber(18500000)  // specific block
 ```
 
 ### Ether Units
 
-Type-safe unit conversions:
-
 ```go
-// Instead of string units
-weiValue, _ := web3.ToWei("1", "ether")
-gweiValue, _ := web3.ToWei("20", "gwei")
-
-// Use typed units
-weiValue, _ := web3.ToWei("1", web3.Ether)
+weiValue, _ := web3.ToWei("1.5", web3.Ether)
 gweiValue, _ := web3.ToWei("20", web3.Gwei)
 
-// Helper functions
+// Convenience helpers
 ethWei, _ := web3.EtherToWei("2.5")
 gweiWei, _ := web3.GweiToWei("30")
 
@@ -839,616 +368,268 @@ ethDisplay, _ := web3.WeiToEther(ethWei)
 gweiDisplay, _ := web3.WeiToGwei(gweiWei)
 ```
 
-Available units: `Wei`, `Kwei`, `Mwei`, `Gwei`, `Szabo`, `Finney`, `Ether`, `Kether`, `Mether`, `Gether`, `Tether`
+| Unit | Aliases | Wei Value |
+|------|---------|-----------|
+| `Wei` | — | 10⁰ |
+| `Kwei` | `Babbage`, `Femtoether` | 10³ |
+| `Mwei` | `Lovelace`, `Picoether` | 10⁶ |
+| `Gwei` | `Shannon`, `Nanoether`, `Nano` | 10⁹ |
+| `Szabo` | `Microether`, `Micro` | 10¹² |
+| `Finney` | `Milliether`, `Milli` | 10¹⁵ |
+| `Ether` | `EthUnit` | 10¹⁸ |
+| `Kether` | `Grand` | 10²¹ |
+| `Mether` | — | 10²⁴ |
+| `Gether` | — | 10²⁷ |
+| `Tether` | — | 10³⁰ |
 
 ### Chain IDs
 
-Pre-defined chain IDs for popular networks:
-
 ```go
-// Instead of magic numbers
-txParams.SetChainID(big.NewInt(1))
+web3.ChainMainnet   // 1
+web3.ChainGoerli    // 5
+web3.ChainSepolia   // 11155111
+web3.ChainPolygon   // 137
+web3.ChainArbitrum  // 42161
 
-// Use typed chain IDs
-txParams.SetChainID(web3.ChainMainnet)
-txParams.SetChainID(web3.ChainGoerli)
-txParams.SetChainID(web3.ChainPolygon)
-txParams.SetChainID(web3.ChainArbitrum)
-
-// Get network information
 config, err := web3.GetNetworkConfig(web3.ChainMainnet)
 fmt.Printf("Network: %s, Currency: %s\n", config.Name, config.Currency)
 
-// Check network type
-isTestnet := web3.IsTestnet(web3.ChainGoerli) // true
-isMainnet := web3.IsMainnet(web3.ChainMainnet) // true
+web3.IsTestnet(web3.ChainGoerli)  // true
+web3.IsMainnet(web3.ChainMainnet) // true
 ```
 
 ### Gas Limits
 
-Standard gas limits for common operations:
-
 ```go
-// Predefined gas limits
-txParams.SetGas(web3.GasLimitTransfer.Uint64())        // 21,000
-txParams.SetGas(web3.GasLimitTokenTransfer.Uint64())   // 65,000
-txParams.SetGas(web3.GasLimitTokenApproval.Uint64())   // 50,000
-txParams.SetGas(web3.GasLimitContractDeploy.Uint64())  // 500,000
+web3.GasLimitTransfer.Uint64()       // 21,000
+web3.GasLimitTokenTransfer.Uint64()  // 65,000
+web3.GasLimitTokenApproval.Uint64()  // 50,000
+web3.GasLimitContractDeploy.Uint64() // 500,000
 ```
 
-### Gas Price Optimization
-
-Smart gas pricing with predefined levels:
+### Gas Price Levels
 
 ```go
-// Gas price optimization levels
-optimal, err := web3.GetOptimalGasPrice(ctx, client, web3.GasPriceStandard) // +10%
-rapid, err := web3.GetOptimalGasPrice(ctx, client, web3.GasPriceRapid)     // +50%
-
-// Levels: GasPriceSlow, GasPriceStandard, GasPriceFast, GasPriceRapid
+price, err := web3.GetOptimalGasPrice(ctx, client, web3.GasPriceStandard) // base + 10%
+price, err  = web3.GetOptimalGasPrice(ctx, client, web3.GasPriceFast)     // base + 25%
+price, err  = web3.GetOptimalGasPrice(ctx, client, web3.GasPriceRapid)    // base + 50%
+// Also: GasPriceSlow (base + 0%)
 ```
 
 ### Common Addresses
 
-Pre-defined addresses for popular contracts:
-
 ```go
-// Common Ethereum addresses
-wethContract := web3.WETHMainnet.String()
-usdcContract := web3.USDCMainnet.String()
-usdtContract := web3.USDTMainnet.String()
+web3.WETHMainnet.String()  // Wrapped ETH contract
+web3.USDCMainnet.String()  // USDC contract
+web3.USDTMainnet.String()  // USDT contract
+web3.ZeroAddress.String()  // 0x0000...0000
+web3.BurnAddress.String()  // 0xdead...dead
 
-// Special addresses
-zeroAddr := web3.ZeroAddress.String()
-burnAddr := web3.BurnAddress.String()
-
-// Address validation helpers
-if web3.IsZeroAddress(someAddress) {
-    fmt.Println("Cannot send to zero address")
-}
+web3.IsZeroAddress(addr)
+web3.IsBurnAddress(addr)
 ```
 
 ### Function Signatures
 
-Type-safe ERC-20 function signatures:
-
 ```go
-// Instead of hardcoded strings
-data, err := web3.EncodeABI("balanceOf(address)", address)
-
-// Use typed signatures
 data, err := web3.EncodeABI(web3.FuncBalanceOf.String(), address)
-data, err := web3.EncodeABI(web3.FuncTransfer.String(), to, amount)
-data, err := web3.EncodeABI(web3.FuncApprove.String(), spender, amount)
+data, err  = web3.EncodeABI(web3.FuncTransfer.String(), to, amount)
+data, err  = web3.EncodeABI(web3.FuncApprove.String(), spender, amount)
 ```
 
-### Transaction Helpers
-
-High-level transaction builders:
+### Transaction Status Helpers
 
 ```go
-// Simple ETH transfer
-ethTx := web3.NewSimpleTransfer("0xRecipient", "1.5", web3.ChainMainnet)
-
-// Token transfer
-tokenTx, err := web3.NewTokenTransfer(
-    web3.USDCMainnet.String(),
-    "0xRecipient", 
-    amount,
-    web3.ChainMainnet,
-)
-
-// Token approval
-approvalTx, err := web3.NewTokenApproval(
-    web3.USDCMainnet.String(),
-    spenderAddress,
-    amount,
-    web3.ChainMainnet,
-)
-```
-
-### Transaction Status
-
-Type-safe transaction status checking:
-
-```go
-// Instead of string comparisons
-if receipt.Status == "0x1" {
-    fmt.Println("Success")
-}
-
-// Use typed status
 if web3.IsTransactionSuccess(receipt) {
     fmt.Println("Transaction successful!")
 }
-
 if web3.IsTransactionFailure(receipt) {
     fmt.Println("Transaction failed!")
 }
-```
 
-### Complete Example
-
-```go
-// Before: Hardcoded strings everywhere
-balance, _ := client.Eth().GetBalance(ctx, addr, "latest")
-weiVal, _ := web3.ToWei("1.5", "ether")
-gasPrice, _ := web3.ToWei("20", "gwei")
-
-tx := web3.NewTransactionParams().
-    SetTo(recipient).
-    SetValue(weiVal).
-    SetGas(21000).
-    SetGasPrice(gasPrice).
-    SetChainID(big.NewInt(1))
-
-// After: Type-safe constants
-balance, _ := client.Eth().GetBalance(ctx, addr, web3.BlockLatest)
-weiVal, _ := web3.ToWei("1.5", web3.Ether)
-gasPrice, _ := web3.ToWei("20", web3.Gwei)
-
-tx := web3.NewTransactionParams().
-    SetTo(recipient).
-    SetValue(weiVal).
-    SetGas(web3.GasLimitTransfer.Uint64()).
-    SetGasPrice(gasPrice).
-    SetChainID(web3.ChainMainnet)
-```
-
-### Benefits
-
-- **Type Safety**: Compile-time checking prevents typos
-- **IDE Support**: Autocomplete and IntelliSense 
-- **Maintainability**: Centralized constant definitions
-- **Readability**: Self-documenting code
-- **Consistency**: Standardized values across the library
-
-## 🚀 Go-Blockchain-Helper Integration
-
-This library is enhanced with [`go-blockchain-helper`](https://github.com/donghquinn/go-blockchain-helper), providing advanced blockchain utilities and optimized implementations.
-
-### Enhanced Features
-
-#### Advanced Unit Conversion
-```go
-// Enhanced parsing with error handling
-ethAmount, err := web3.ParseEther("2.5")
-gweiAmount, err := web3.ParseUnits("20", 9) // Custom decimals
-
-// Advanced formatting with precision control
-formatted := web3.FormatEther(weiAmount, 4) // 4 decimal places
-customFormat := web3.FormatUnits(amount, 6) // USDC with 6 decimals
-```
-
-#### Professional ERC20 Token Support
-```go
-// Create typed token instances
-token := web3.NewERC20Token(contractAddr, "USD Coin", "USDC", 6)
-
-// Enhanced encoding with proper error handling
-transferData, err := web3.EncodeERC20Transfer(token, recipient, amount)
-approveData, err := web3.EncodeERC20Approve(token, spender, amount)
-
-// Simplified transaction creation
-tokenTx, err := web3.NewTokenTransfer(
-    web3.USDCMainnet.String(),
-    recipient,
-    amount,
-    web3.ChainMainnet,
-)
-```
-
-#### ERC721 (NFT) Support
-```go
-// Create NFT token instances
-nft := web3.NewERC721Token(contractAddr, "BoredApeYachtClub", "BAYC")
-
-// NFT operations
-transferData, err := web3.EncodeERC721Transfer(nft, from, to, tokenId)
-approveData, err := web3.EncodeERC721Approve(nft, approved, tokenId)
-setApprovalData, err := web3.EncodeERC721SetApprovalForAll(nft, operator, true)
-```
-
-#### Enhanced Transaction Building
-```go
-// Smart transaction creation with automatic estimation
-tx, err := web3.CreateTransactionWithEstimate(
-    recipient,
-    value,
-    data,
-    web3.ChainMainnet,
-)
-
-// Enhanced fee calculation
 fee := web3.CalculateTransactionFee(gasLimit, gasPrice)
 ```
 
-#### Advanced Contract Interaction
-```go
-// Enhanced token balance queries
-balance, err := web3.GetTokenBalance(ctx, client, tokenContract, address)
-allowance, err := web3.GetTokenAllowance(ctx, client, tokenContract, owner, spender)
+---
 
-// Advanced ABI encoding with type inference
-abiParams := []web3.ABIParam{{Type: "address"}, {Type: "uint256"}}
-data, err := web3.EncodeFunctionCallAdvanced(signature, abiParams, params)
+## go-blockchain-helper Integration
+
+This library integrates [`go-blockchain-helper`](https://github.com/donghquinn/go-blockchain-helper) for advanced ABI encoding and token utilities.
+
+### ERC-20 Token Support
+
+```go
+// Create a typed token instance
+token := web3.NewERC20Token("0xCONTRACT", "USD Coin", "USDC", 6)
+
+// Encode common operations
+transferData, err := web3.EncodeERC20Transfer(token, recipient, amount)
+approveData, err  := web3.EncodeERC20Approve(token, spender, amount)
+fromData, err     := web3.EncodeERC20TransferFrom(token, from, to, amount)
+
+// High-level transaction builders
+tokenTx, err := web3.NewTokenTransfer(
+    web3.USDCMainnet.String(), recipient, amount, web3.ChainMainnet,
+)
+approvalTx, err := web3.NewTokenApproval(
+    web3.USDCMainnet.String(), spender, amount, web3.ChainMainnet,
+)
+
+// Query on-chain values
+balance, err   := web3.GetTokenBalance(ctx, client, "0xCONTRACT", ownerAddr)
+allowance, err := web3.GetTokenAllowance(ctx, client, "0xCONTRACT", owner, spender)
 ```
 
-#### Event Processing
-```go
-// Create event monitor for real-time processing
-monitor := web3.CreateEventMonitor()
+### ERC-721 (NFT) Support
 
-// Parse common events
-transferEvent, err := web3.ParseTransferEvent(eventData)
+```go
+nft := web3.NewERC721Token("0xCONTRACT", "BoredApeYachtClub", "BAYC")
+
+transferData, err     := web3.EncodeERC721Transfer(nft, from, to, tokenId)
+approveData, err      := web3.EncodeERC721Approve(nft, approved, tokenId)
+setApprovalData, err  := web3.EncodeERC721SetApprovalForAll(nft, operator, true)
 ```
 
-#### Enhanced Address Validation
-```go
-// Comprehensive address validation
-isValid := web3.ValidateAddress(address)
-isZero := web3.IsZeroAddress(address)
-isBurn := web3.IsBurnAddress(address)
-
-// Private key utilities
-address, err := web3.PrivateKeyToAddressHelper(privateKey)
-```
-
-### Benefits of Integration
-
-- **Zero External Dependencies**: `go-blockchain-helper` uses only Go standard library
-- **Enhanced Performance**: Optimized implementations for common operations
-- **Professional Features**: Production-ready ERC20/ERC721 support
-- **Better Error Handling**: Comprehensive error information
-- **Type Safety**: Strongly-typed token and transaction structures
-- **Advanced Utilities**: Event processing, enhanced validation, and more
-
-### Migration from Basic Functions
+### Advanced ABI Encoding
 
 ```go
-// Before: Basic implementations
-weiValue, _ := web3.ToWei("1", web3.Ether)
-balance, _ := client.Eth().GetBalance(ctx, addr, web3.BlockLatest)
+// Simple encoding with type inference
+data, err := web3.EncodeABI("transfer(address,uint256)", recipientAddr, amount)
 
-// After: Enhanced with go-blockchain-helper
-ethValue, err := web3.ParseEther("1")           // Better parsing
-balance, err := web3.GetTokenBalance(ctx, client, token, addr) // Enhanced queries
-```
-
-The integration maintains full backward compatibility while providing enhanced functionality for professional blockchain development.
-
-## 🛠️ Utility Functions
-
-### Wei/Ether Conversion
-
-The library provides comprehensive unit conversion similar to web3.js:
-
-#### Convert to Wei
-```go
-// Convert from Ether to Wei
-weiValue, err := web3.ToWei("1.5", "ether")
-if err != nil {
-    log.Fatal(err)
+// Advanced encoding with explicit type hints
+params := []blockchainhelper.ABIParam{
+    {Type: "address"},
+    {Type: "uint256"},
 }
-fmt.Printf("1.5 ETH = %s Wei\n", weiValue.String())
+data, err = web3.EncodeFunctionCallAdvanced("transfer(address,uint256)", params, args)
 
-// Convert from Gwei to Wei  
-gasPriceWei, err := web3.ToWei("20", "gwei")
-fmt.Printf("20 Gwei = %s Wei\n", gasPriceWei.String())
+// Decode results
+values, err := web3.DecodeFunctionResult([]string{"uint256"}, rawBytes)
 
-// Support for all units
-units := []string{"wei", "kwei", "mwei", "gwei", "szabo", "finney", "ether"}
-for _, unit := range units {
-    wei, _ := web3.ToWei("1", unit)
-    fmt.Printf("1 %s = %s wei\n", unit, wei.String())
-}
+// Parse Transfer events
+event, err := web3.ParseTransferEvent(logEntry)
 ```
 
-#### Convert from Wei
+### Gas Estimation
+
 ```go
-// Convert Wei to Ether for display
-weiAmount := big.NewInt(1500000000000000000) // 1.5 ETH in wei
-ethValue, err := web3.FromWei(weiAmount, "ether")
-if err != nil {
-    log.Fatal(err)
-}
-fmt.Printf("Wei to ETH: %s\n", ethValue) // "1.5"
+// Transaction with library-estimated gas
+tx, err := web3.CreateTransactionWithEstimate(recipient, value, data, web3.ChainMainnet)
 
-// Convert Wei to Gwei (useful for gas prices)
-gasPriceWei := big.NewInt(20000000000)
-gasPriceGwei, _ := web3.FromWei(gasPriceWei, "gwei")
-fmt.Printf("Gas price: %s Gwei\n", gasPriceGwei) // "20"
+// Manual estimation with buffer
+gas, err := web3.EstimateGasWithBuffer(ctx, client, callObj, 0.1) // +10%
 ```
+
+---
+
+## Utilities
 
 ### Address Validation
 
-#### Check Address Format
 ```go
-addresses := []string{
-    "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045", // valid
-    "0xInvalidAddress",                            // invalid
-    "d8dA6BF26964aF9D7eEd9e03E53415D37aA96045",   // missing 0x prefix
-    "0x123",                                       // too short
-}
+web3.IsAddress("0x742d35Cc6634C0532925a3b844Bc454e4438f44e") // true
+web3.IsAddress("not-an-address")                             // false
 
-for _, addr := range addresses {
-    if web3.IsAddress(addr) {
-        fmt.Printf("%s is a valid address\n", addr)
-    } else {
-        fmt.Printf("%s is invalid\n", addr)
-    }
-}
+// Private key utilities
+addr := web3.PrivateKeyToAddress(privateKey)
+hexKey := web3.PrivateKeyToHex(privateKey)
+key, err := web3.PrivateKeyFromHex("0xPRIVATE_KEY")
+
+addrStr, err := web3.PrivateKeyToAddressHelper(privateKey)
 ```
 
 ### Hex Conversion
 
-#### Convert Values to Hex
 ```go
-// Convert integers to hex
-hexInt := web3.ToHex(12345)        // "0x3039"
-hexBigInt := web3.ToHex(big.NewInt(12345)) // "0x3039"
+web3.ToHex(12345)                    // "0x3039"
+web3.ToHex(big.NewInt(12345))        // "0x3039"
+web3.ToHex([]byte{0x12, 0x34})      // "0x1234"
+web3.ToHex("hello")                  // "0x68656c6c6f"
 
-// Convert strings to hex
-hexString := web3.ToHex("hello")   // "0x68656c6c6f"
-
-// Convert byte arrays to hex
-data := []byte{0x12, 0x34, 0x56}
-hexBytes := web3.ToHex(data)       // "0x123456"
-```
-
-#### Convert from Hex
-```go
-// Convert hex string to big.Int
-hexValue := "0x3039"
-value, err := web3.FromHex(hexValue)
-if err != nil {
-    log.Fatal(err)
-}
-fmt.Printf("Hex %s = %d decimal\n", hexValue, value.Int64()) // "12345"
+val, err := web3.FromHex("0x3039")  // big.Int(12345)
 ```
 
 ### String Padding
 
-#### Pad Strings
 ```go
-// Left padding (useful for hex values)
-padded := web3.PadLeft("abc", 8, "0")    // "00000abc"
-hexPadded := web3.PadLeft("1a2b", 8, "0") // "00001a2b"
-
-// Right padding
-rightPadded := web3.PadRight("abc", 8, "0") // "abc00000"
-
-// Common use case: padding addresses or hex values
-address := "0x123"
-paddedAddr := "0x" + web3.PadLeft(address[2:], 40, "0")
-fmt.Printf("Padded address: %s\n", paddedAddr)
+web3.PadLeft("abc", 8, "0")   // "00000abc"
+web3.PadRight("abc", 8, "0")  // "abc00000"
 ```
 
-## 📏 Supported Ethereum Units
+---
 
-| Unit Name | Aliases | Wei Value | Common Use |
-|-----------|---------|-----------|------------|
-| `wei` | - | 1 | Smallest unit, precise calculations |
-| `kwei` | `babbage`, `femtoether` | 10³ | - |
-| `mwei` | `lovelace`, `picoether` | 10⁶ | - |
-| `gwei` | `shannon`, `nanoether`, `nano` | 10⁹ | **Gas prices** |
-| `szabo` | `microether`, `micro` | 10¹² | - |
-| `finney` | `milliether`, `milli` | 10¹⁵ | Small transactions |
-| `ether` | `eth` | 10¹⁸ | **Standard currency unit** |
-| `kether` | `grand` | 10²¹ | Large amounts |
-| `mether` | - | 10²⁴ | Very large amounts |
-| `gether` | - | 10²⁷ | Extremely large amounts |
-| `tether` | - | 10³⁰ | Theoretical amounts |
-
-### Unit Conversion Examples
-```go
-// Common conversions
-oneEth, _ := web3.ToWei("1", "ether")           // 1000000000000000000 wei
-oneGwei, _ := web3.ToWei("1", "gwei")           // 1000000000 wei
-gasPrice, _ := web3.ToWei("20", "gwei")         // 20000000000 wei (20 Gwei)
-
-// Display conversions
-weiAmount := big.NewInt(1500000000000000000)
-ethDisplay, _ := web3.FromWei(weiAmount, "ether")    // "1.5"
-gweiDisplay, _ := web3.FromWei(weiAmount, "gwei")    // "1500000000"
-```
-
-## 🚨 Error Handling
-
-### RPC Errors
-The library provides detailed error information for RPC failures:
+## Error Handling
 
 ```go
-balance, err := client.Eth().GetBalance(ctx, "invalid-address", "latest")
+balance, err := client.Eth().GetBalance(ctx, address, web3.BlockLatest)
 if err != nil {
-    // Check if it's an RPC error
     if rpcErr, ok := err.(*web3.RPCError); ok {
-        fmt.Printf("RPC Error %d: %s\n", rpcErr.Code, rpcErr.Message)
-        if rpcErr.Data != "" {
-            fmt.Printf("Additional data: %s\n", rpcErr.Data)
-        }
+        fmt.Printf("RPC error %d: %s\n", rpcErr.Code, rpcErr.Message)
     } else {
-        // Handle other errors (network, parsing, etc.)
-        fmt.Printf("Other error: %v\n", err)
+        fmt.Printf("Error: %v\n", err)
     }
 }
-```
 
-### Common Error Scenarios
-```go
 // Timeout handling
 ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 defer cancel()
 
 result, err := client.Eth().GetBlockNumber(ctx)
-if err != nil {
-    if ctx.Err() == context.DeadlineExceeded {
-        fmt.Println("Request timed out")
-    }
-    return
-}
-
-// Network error handling
-if err != nil {
-    if strings.Contains(err.Error(), "connection refused") {
-        fmt.Println("Cannot connect to Ethereum node")
-    } else if strings.Contains(err.Error(), "invalid response") {
-        fmt.Println("Invalid response from node")
-    }
+if err != nil && ctx.Err() == context.DeadlineExceeded {
+    fmt.Println("Request timed out")
 }
 ```
-
-## 🌟 Advanced Usage Examples
-
-### Complete Transaction Monitoring
-```go
-func monitorTransaction(client *web3.Client, txHash string) error {
-    ctx := context.Background()
-    
-    // Check if transaction exists
-    tx, err := client.Eth().GetTransactionByHash(ctx, txHash)
-    if err != nil {
-        return fmt.Errorf("transaction not found: %w", err)
-    }
-    
-    fmt.Printf("Transaction found: %s -> %s\n", tx.From, tx.To)
-    fmt.Printf("Value: %s ETH\n", mustFromWei(tx.Value, "ether"))
-    
-    // Wait for confirmation
-    for {
-        receipt, err := client.Eth().GetTransactionReceipt(ctx, txHash)
-        if err != nil {
-            time.Sleep(5 * time.Second)
-            continue
-        }
-        
-        if receipt.Status == "0x1" {
-            fmt.Printf("✅ Transaction confirmed in block %s\n", receipt.BlockNumber)
-            fmt.Printf("Gas used: %s\n", receipt.GasUsed)
-            return nil
-        } else {
-            fmt.Printf("❌ Transaction failed\n")
-            return fmt.Errorf("transaction failed")
-        }
-    }
-}
-
-func mustFromWei(weiHex, unit string) string {
-    wei, _ := web3.FromHex(weiHex)
-    eth, _ := web3.FromWei(wei, unit)
-    return eth
-}
-```
-
-### Gas Price Optimization
-```go
-func getOptimalGasPrice(client *web3.Client) (*big.Int, error) {
-    ctx := context.Background()
-    
-    // Get current gas price
-    currentGas, err := client.Eth().GetGasPrice(ctx)
-    if err != nil {
-        return nil, err
-    }
-    
-    // Add 10% buffer for faster processing
-    buffer := new(big.Int).Div(currentGas, big.NewInt(10))
-    optimalGas := new(big.Int).Add(currentGas, buffer)
-    
-    fmt.Printf("Current gas price: %s Gwei\n", mustFromWei(fmt.Sprintf("0x%x", currentGas), "gwei"))
-    fmt.Printf("Optimal gas price: %s Gwei\n", mustFromWei(fmt.Sprintf("0x%x", optimalGas), "gwei"))
-    
-    return optimalGas, nil
-}
-```
-
-### Batch Operations
-```go
-func getMultipleBalances(client *web3.Client, addresses []string) (map[string]*big.Int, error) {
-    ctx := context.Background()
-    balances := make(map[string]*big.Int)
-    
-    // Use goroutines for concurrent requests
-    type result struct {
-        address string
-        balance *big.Int
-        err     error
-    }
-    
-    results := make(chan result, len(addresses))
-    
-    for _, addr := range addresses {
-        go func(address string) {
-            balance, err := client.Eth().GetBalance(ctx, address, "latest")
-            results <- result{address, balance, err}
-        }(addr)
-    }
-    
-    // Collect results
-    for i := 0; i < len(addresses); i++ {
-        res := <-results
-        if res.err != nil {
-            return nil, res.err
-        }
-        balances[res.address] = res.balance
-    }
-    
-    return balances, nil
-}
-```
-
-## 📁 Project Structure
-
-```
-go-web3/
-├── client.go          # Core JSON-RPC HTTP client
-├── eth.go             # Ethereum API methods (eth_*, net_*, web3_*)
-├── wallet.go          # Wallet creation and high-level send helpers
-├── transaction.go     # Transaction signing (legacy & EIP-1559)
-├── types.go           # Typed constants, enums, and network configs
-├── utils.go           # Wei/Ether conversion, hex, address utilities
-├── helpers.go         # Advanced helpers (ERC-20/ERC-721, ABI encoding)
-├── example/
-│   └── main.go        # Usage examples
-├── go.mod             # Go module definition
-├── README.md          # This documentation
-└── LICENSE            # MIT license
-```
-
-## 🔗 Popular RPC Endpoints
-
-### Mainnet
-- **Infura**: `https://mainnet.infura.io/v3/YOUR_PROJECT_ID`
-- **Alchemy**: `https://eth-mainnet.alchemyapi.io/v2/YOUR_API_KEY`
-- **QuickNode**: `https://your-endpoint.quiknode.pro/YOUR_API_KEY/`
-
-### Testnets  
-- **Goerli**: `https://goerli.infura.io/v3/YOUR_PROJECT_ID`
-- **Sepolia**: `https://sepolia.infura.io/v3/YOUR_PROJECT_ID`
-
-### Local Development
-- **Hardhat**: `http://localhost:8545`
-- **Ganache**: `http://localhost:7545`
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙋‍♂️ Support
-
-- 📖 Documentation: This README
-- 💻 Examples: See `example/main.go`
-- 🐛 Issues: Open an issue on GitHub
-- 💡 Feature Requests: Open an issue with the enhancement label
 
 ---
 
-**Made with ❤️ for the Ethereum Go community**
+## Project Structure
+
+```
+go-web3/
+├── client.go           # Core JSON-RPC HTTP client
+├── eth.go              # Ethereum API methods (eth_*, net_*, web3_*)
+├── wallet.go           # Wallet creation and high-level send helpers
+├── transaction.go      # Transaction signing (legacy & EIP-1559)
+├── types.go            # Typed constants, enums, and network configs
+├── utils.go            # Wei/Ether conversion, hex, address utilities
+├── helpers.go          # Advanced helpers (ERC-20/ERC-721, ABI encoding)
+├── client_test.go      # JSON-RPC client tests
+├── eth_test.go         # Ethereum method tests
+├── wallet_test.go      # Wallet and high-level send tests
+├── transaction_test.go # Signing and ABI encoding tests
+├── helpers_test.go     # Helper function tests
+├── utils_test.go       # Utility function tests
+├── mock_test.go        # Shared httptest mock RPC server helpers
+├── example/
+│   └── main.go         # Usage examples
+├── go.mod
+├── README.md
+└── LICENSE
+```
+
+## Popular RPC Endpoints
+
+**Mainnet**
+- Infura: `https://mainnet.infura.io/v3/YOUR_PROJECT_ID`
+- Alchemy: `https://eth-mainnet.alchemyapi.io/v2/YOUR_API_KEY`
+- QuickNode: `https://your-endpoint.quiknode.pro/YOUR_API_KEY/`
+
+**Testnets**
+- Sepolia: `https://sepolia.infura.io/v3/YOUR_PROJECT_ID`
+- Goerli: `https://goerli.infura.io/v3/YOUR_PROJECT_ID`
+
+**Local Development**
+- Hardhat: `http://localhost:8545`
+- Ganache: `http://localhost:7545`
+
+## Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/my-feature`)
+3. Commit your changes (`git commit -m 'Add my feature'`)
+4. Push to the branch (`git push origin feature/my-feature`)
+5. Open a Pull Request
+
+## License
+
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
