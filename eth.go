@@ -15,24 +15,44 @@ func (c *Client) Eth() *Eth {
 	return &Eth{client: c}
 }
 
+// parseHexBigInt unmarshals a JSON-encoded hex string (e.g. "0x1a") into a *big.Int.
+func parseHexBigInt(result json.RawMessage, field string) (*big.Int, error) {
+	var hexValue string
+	if err := json.Unmarshal(result, &hexValue); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal %s: %w", field, err)
+	}
+	val := new(big.Int)
+	val.SetString(hexValue[2:], 16)
+	return val, nil
+}
+
+// parseHexUint64 unmarshals a JSON-encoded hex string into a uint64.
+func parseHexUint64(result json.RawMessage, field string) (uint64, error) {
+	val, err := parseHexBigInt(result, field)
+	if err != nil {
+		return 0, err
+	}
+	return val.Uint64(), nil
+}
+
+// parseJSONString unmarshals a JSON-encoded string value.
+func parseJSONString(result json.RawMessage, field string) (string, error) {
+	var val string
+	if err := json.Unmarshal(result, &val); err != nil {
+		return "", fmt.Errorf("failed to unmarshal %s: %w", field, err)
+	}
+	return val, nil
+}
+
 func (e *Eth) GetBalance(ctx context.Context, address string, blockNumber BlockParameter) (*big.Int, error) {
 	if blockNumber == "" {
 		blockNumber = BlockLatest
 	}
-	
 	result, err := e.client.Call(ctx, EthGetBalance.String(), []interface{}{address, blockNumber.String()})
 	if err != nil {
 		return nil, err
 	}
-
-	var hexValue string
-	if err := json.Unmarshal(result, &hexValue); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal balance: %w", err)
-	}
-
-	balance := new(big.Int)
-	balance.SetString(hexValue[2:], 16)
-	return balance, nil
+	return parseHexBigInt(result, "balance")
 }
 
 func (e *Eth) GetBlockNumber(ctx context.Context) (uint64, error) {
@@ -40,15 +60,7 @@ func (e *Eth) GetBlockNumber(ctx context.Context) (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-
-	var hexValue string
-	if err := json.Unmarshal(result, &hexValue); err != nil {
-		return 0, fmt.Errorf("failed to unmarshal block number: %w", err)
-	}
-
-	blockNumber := new(big.Int)
-	blockNumber.SetString(hexValue[2:], 16)
-	return blockNumber.Uint64(), nil
+	return parseHexUint64(result, "block number")
 }
 
 func (e *Eth) GetGasPrice(ctx context.Context) (*big.Int, error) {
@@ -56,35 +68,18 @@ func (e *Eth) GetGasPrice(ctx context.Context) (*big.Int, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	var hexValue string
-	if err := json.Unmarshal(result, &hexValue); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal gas price: %w", err)
-	}
-
-	gasPrice := new(big.Int)
-	gasPrice.SetString(hexValue[2:], 16)
-	return gasPrice, nil
+	return parseHexBigInt(result, "gas price")
 }
 
 func (e *Eth) GetTransactionCount(ctx context.Context, address string, blockNumber BlockParameter) (uint64, error) {
 	if blockNumber == "" {
 		blockNumber = BlockLatest
 	}
-	
 	result, err := e.client.Call(ctx, EthGetTransactionCount.String(), []interface{}{address, blockNumber.String()})
 	if err != nil {
 		return 0, err
 	}
-
-	var hexValue string
-	if err := json.Unmarshal(result, &hexValue); err != nil {
-		return 0, fmt.Errorf("failed to unmarshal transaction count: %w", err)
-	}
-
-	nonce := new(big.Int)
-	nonce.SetString(hexValue[2:], 16)
-	return nonce.Uint64(), nil
+	return parseHexUint64(result, "transaction count")
 }
 
 type Block struct {
@@ -113,17 +108,14 @@ func (e *Eth) GetBlockByNumber(ctx context.Context, blockNumber BlockParameter, 
 	if blockNumber == "" {
 		blockNumber = BlockLatest
 	}
-	
 	result, err := e.client.Call(ctx, EthGetBlockByNumber.String(), []interface{}{blockNumber.String(), fullTransactions})
 	if err != nil {
 		return nil, err
 	}
-
 	var block Block
 	if err := json.Unmarshal(result, &block); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal block: %w", err)
 	}
-
 	return &block, nil
 }
 
@@ -132,12 +124,10 @@ func (e *Eth) GetBlockByHash(ctx context.Context, blockHash string, fullTransact
 	if err != nil {
 		return nil, err
 	}
-
 	var block Block
 	if err := json.Unmarshal(result, &block); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal block: %w", err)
 	}
-
 	return &block, nil
 }
 
@@ -160,12 +150,10 @@ func (e *Eth) GetTransactionByHash(ctx context.Context, txHash string) (*Transac
 	if err != nil {
 		return nil, err
 	}
-
 	var tx Transaction
 	if err := json.Unmarshal(result, &tx); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal transaction: %w", err)
 	}
-
 	return &tx, nil
 }
 
@@ -187,12 +175,10 @@ func (e *Eth) GetTransactionReceipt(ctx context.Context, txHash string) (*Transa
 	if err != nil {
 		return nil, err
 	}
-
 	var receipt TransactionReceipt
 	if err := json.Unmarshal(result, &receipt); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal transaction receipt: %w", err)
 	}
-
 	return &receipt, nil
 }
 
@@ -201,13 +187,7 @@ func (e *Eth) SendRawTransaction(ctx context.Context, signedTx string) (string, 
 	if err != nil {
 		return "", err
 	}
-
-	var txHash string
-	if err := json.Unmarshal(result, &txHash); err != nil {
-		return "", fmt.Errorf("failed to unmarshal transaction hash: %w", err)
-	}
-
-	return txHash, nil
+	return parseJSONString(result, "transaction hash")
 }
 
 func (e *Eth) EstimateGas(ctx context.Context, tx map[string]interface{}) (uint64, error) {
@@ -215,134 +195,97 @@ func (e *Eth) EstimateGas(ctx context.Context, tx map[string]interface{}) (uint6
 	if err != nil {
 		return 0, err
 	}
-
-	var hexValue string
-	if err := json.Unmarshal(result, &hexValue); err != nil {
-		return 0, fmt.Errorf("failed to unmarshal gas estimate: %w", err)
-	}
-
-	gasEstimate := new(big.Int)
-	gasEstimate.SetString(hexValue[2:], 16)
-	return gasEstimate.Uint64(), nil
+	return parseHexUint64(result, "gas estimate")
 }
 
 func (e *Eth) Call(ctx context.Context, callObj map[string]interface{}, blockNumber BlockParameter) (string, error) {
 	if blockNumber == "" {
 		blockNumber = BlockLatest
 	}
-	
 	result, err := e.client.Call(ctx, EthCall.String(), []interface{}{callObj, blockNumber.String()})
 	if err != nil {
 		return "", err
 	}
-
-	var data string
-	if err := json.Unmarshal(result, &data); err != nil {
-		return "", fmt.Errorf("failed to unmarshal call result: %w", err)
-	}
-
-	return data, nil
+	return parseJSONString(result, "call result")
 }
 
-// GetPendingTransactions returns pending transactions from the mempool
+// GetPendingTransactions returns pending transactions from the mempool.
 func (e *Eth) GetPendingTransactions(ctx context.Context) ([]*Transaction, error) {
-	// Get the pending block with full transaction details
 	block, err := e.GetBlockByNumber(ctx, BlockPending, true)
 	if err != nil {
 		return nil, err
 	}
-	
-	// Convert interface{} transactions to Transaction structs
-	var pendingTxs []*Transaction
-	for _, txInterface := range block.Transactions {
-		if txData, ok := txInterface.(map[string]interface{}); ok {
-			tx := &Transaction{}
-			
-			// Parse transaction fields with proper error handling
-			if hash, ok := txData["hash"].(string); ok {
-				tx.Hash = hash
-			}
-			if nonce, ok := txData["nonce"].(string); ok {
-				tx.Nonce = nonce
-			}
-			if blockHash, ok := txData["blockHash"].(string); ok {
-				tx.BlockHash = blockHash
-			}
-			if blockNumber, ok := txData["blockNumber"].(string); ok {
-				tx.BlockNumber = blockNumber
-			}
-			if transactionIndex, ok := txData["transactionIndex"].(string); ok {
-				tx.TransactionIndex = transactionIndex
-			}
-			if from, ok := txData["from"].(string); ok {
-				tx.From = from
-			}
-			if to, ok := txData["to"].(string); ok {
-				tx.To = to
-			}
-			if value, ok := txData["value"].(string); ok {
-				tx.Value = value
-			}
-			if gas, ok := txData["gas"].(string); ok {
-				tx.Gas = gas
-			}
-			if gasPrice, ok := txData["gasPrice"].(string); ok {
-				tx.GasPrice = gasPrice
-			}
-			if input, ok := txData["input"].(string); ok {
-				tx.Input = input
-			}
-			
-			pendingTxs = append(pendingTxs, tx)
-		}
-	}
-	
-	return pendingTxs, nil
+	return txsFromBlock(block), nil
 }
 
-// GetPendingTransactionCount returns the number of pending transactions
+// txsFromBlock converts the untyped transaction slice from a block into []*Transaction.
+func txsFromBlock(block *Block) []*Transaction {
+	var txs []*Transaction
+	for _, raw := range block.Transactions {
+		txData, ok := raw.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		tx := &Transaction{}
+		strField := func(key string) string {
+			v, _ := txData[key].(string)
+			return v
+		}
+		tx.Hash = strField("hash")
+		tx.Nonce = strField("nonce")
+		tx.BlockHash = strField("blockHash")
+		tx.BlockNumber = strField("blockNumber")
+		tx.TransactionIndex = strField("transactionIndex")
+		tx.From = strField("from")
+		tx.To = strField("to")
+		tx.Value = strField("value")
+		tx.Gas = strField("gas")
+		tx.GasPrice = strField("gasPrice")
+		tx.Input = strField("input")
+		txs = append(txs, tx)
+	}
+	return txs
+}
+
+// GetPendingTransactionCount returns the number of pending transactions.
 func (e *Eth) GetPendingTransactionCount(ctx context.Context) (int, error) {
-	pendingTxs, err := e.GetPendingTransactions(ctx)
+	txs, err := e.GetPendingTransactions(ctx)
 	if err != nil {
 		return 0, err
 	}
-	return len(pendingTxs), nil
+	return len(txs), nil
 }
 
-// GetAccountPendingTransactions returns pending transactions for a specific account
+// GetAccountPendingTransactions returns pending transactions for a specific account.
 func (e *Eth) GetAccountPendingTransactions(ctx context.Context, address string) ([]*Transaction, error) {
-	allPendingTxs, err := e.GetPendingTransactions(ctx)
+	all, err := e.GetPendingTransactions(ctx)
 	if err != nil {
 		return nil, err
 	}
-	
-	var accountTxs []*Transaction
-	for _, tx := range allPendingTxs {
+	var out []*Transaction
+	for _, tx := range all {
 		if tx.From == address || tx.To == address {
-			accountTxs = append(accountTxs, tx)
+			out = append(out, tx)
 		}
 	}
-	
-	return accountTxs, nil
+	return out, nil
 }
 
-// IsPendingTransaction checks if a transaction hash is in the pending pool
+// IsPendingTransaction reports whether the given hash is in the pending pool.
 func (e *Eth) IsPendingTransaction(ctx context.Context, txHash string) (bool, error) {
-	pendingTxs, err := e.GetPendingTransactions(ctx)
+	txs, err := e.GetPendingTransactions(ctx)
 	if err != nil {
 		return false, err
 	}
-
-	for _, tx := range pendingTxs {
+	for _, tx := range txs {
 		if tx.Hash == txHash {
 			return true, nil
 		}
 	}
-
 	return false, nil
 }
 
-// LogFilter defines filter parameters for eth_getLogs
+// LogFilter defines filter parameters for eth_getLogs.
 type LogFilter struct {
 	FromBlock BlockParameter `json:"fromBlock,omitempty"`
 	ToBlock   BlockParameter `json:"toBlock,omitempty"`
@@ -351,7 +294,7 @@ type LogFilter struct {
 	BlockHash string         `json:"blockHash,omitempty"`
 }
 
-// Log represents a single event log entry
+// Log represents a single event log entry.
 type Log struct {
 	Address          string   `json:"address"`
 	Topics           []string `json:"topics"`
@@ -365,157 +308,105 @@ type Log struct {
 	Removed          bool     `json:"removed"`
 }
 
-// GetLogs returns event logs matching the given filter
+// GetLogs returns event logs matching the given filter.
 func (e *Eth) GetLogs(ctx context.Context, filter LogFilter) ([]*Log, error) {
 	result, err := e.client.Call(ctx, EthGetLogs.String(), []interface{}{filter})
 	if err != nil {
 		return nil, err
 	}
-
 	var logs []*Log
 	if err := json.Unmarshal(result, &logs); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal logs: %w", err)
 	}
-
 	return logs, nil
 }
 
-// GetStorageAt returns the value of a storage slot at a given address
-func (e *Eth) GetStorageAt(ctx context.Context, address string, position string, blockNumber BlockParameter) (string, error) {
+// GetStorageAt returns the value of a storage slot at a given address.
+func (e *Eth) GetStorageAt(ctx context.Context, address, position string, blockNumber BlockParameter) (string, error) {
 	if blockNumber == "" {
 		blockNumber = BlockLatest
 	}
-
 	result, err := e.client.Call(ctx, EthGetStorageAt.String(), []interface{}{address, position, blockNumber.String()})
 	if err != nil {
 		return "", err
 	}
-
-	var value string
-	if err := json.Unmarshal(result, &value); err != nil {
-		return "", fmt.Errorf("failed to unmarshal storage value: %w", err)
-	}
-
-	return value, nil
+	return parseJSONString(result, "storage value")
 }
 
-// GetCode returns the compiled bytecode of a smart contract
+// GetCode returns the compiled bytecode of a smart contract.
 func (e *Eth) GetCode(ctx context.Context, address string, blockNumber BlockParameter) (string, error) {
 	if blockNumber == "" {
 		blockNumber = BlockLatest
 	}
-
 	result, err := e.client.Call(ctx, EthGetCode.String(), []interface{}{address, blockNumber.String()})
 	if err != nil {
 		return "", err
 	}
-
-	var code string
-	if err := json.Unmarshal(result, &code); err != nil {
-		return "", fmt.Errorf("failed to unmarshal code: %w", err)
-	}
-
-	return code, nil
+	return parseJSONString(result, "code")
 }
 
-// GetNetVersion returns the current network ID
+// GetNetVersion returns the current network ID.
 func (e *Eth) GetNetVersion(ctx context.Context) (string, error) {
 	result, err := e.client.Call(ctx, NetVersion.String(), []interface{}{})
 	if err != nil {
 		return "", err
 	}
-
-	var version string
-	if err := json.Unmarshal(result, &version); err != nil {
-		return "", fmt.Errorf("failed to unmarshal net version: %w", err)
-	}
-
-	return version, nil
+	return parseJSONString(result, "net version")
 }
 
-// GetClientVersion returns the current client version string
+// GetClientVersion returns the current client version string.
 func (e *Eth) GetClientVersion(ctx context.Context) (string, error) {
 	result, err := e.client.Call(ctx, Web3ClientVersion.String(), []interface{}{})
 	if err != nil {
 		return "", err
 	}
-
-	var version string
-	if err := json.Unmarshal(result, &version); err != nil {
-		return "", fmt.Errorf("failed to unmarshal client version: %w", err)
-	}
-
-	return version, nil
+	return parseJSONString(result, "client version")
 }
 
-// GetChainID returns the chain ID of the connected network
+// GetChainID returns the chain ID of the connected network.
 func (e *Eth) GetChainID(ctx context.Context) (*big.Int, error) {
 	result, err := e.client.Call(ctx, EthChainId.String(), []interface{}{})
 	if err != nil {
 		return nil, err
 	}
-
-	var hexValue string
-	if err := json.Unmarshal(result, &hexValue); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal chain ID: %w", err)
-	}
-
-	chainID := new(big.Int)
-	chainID.SetString(hexValue[2:], 16)
-	return chainID, nil
+	return parseHexBigInt(result, "chain ID")
 }
 
-// GetMaxPriorityFeePerGas returns the current maxPriorityFeePerGas (EIP-1559 tip)
+// GetMaxPriorityFeePerGas returns the current maxPriorityFeePerGas (EIP-1559 tip).
 func (e *Eth) GetMaxPriorityFeePerGas(ctx context.Context) (*big.Int, error) {
 	result, err := e.client.Call(ctx, EthMaxPriorityFeePerGas.String(), []interface{}{})
 	if err != nil {
 		return nil, err
 	}
-
-	var hexValue string
-	if err := json.Unmarshal(result, &hexValue); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal max priority fee per gas: %w", err)
-	}
-
-	fee := new(big.Int)
-	fee.SetString(hexValue[2:], 16)
-	return fee, nil
+	return parseHexBigInt(result, "max priority fee per gas")
 }
 
-// FeeHistoryResult holds the response from eth_feeHistory
+// FeeHistoryResult holds the response from eth_feeHistory.
 type FeeHistoryResult struct {
-	OldestBlock        string     `json:"oldestBlock"`
-	BaseFeePerGas      []string   `json:"baseFeePerGas"`
-	GasUsedRatio       []float64  `json:"gasUsedRatio"`
-	Reward             [][]string `json:"reward,omitempty"`
-	BaseFeePerBlobGas  []string   `json:"baseFeePerBlobGas,omitempty"`  // EIP-4844
-	BlobGasUsedRatio   []float64  `json:"blobGasUsedRatio,omitempty"`   // EIP-4844
+	OldestBlock       string     `json:"oldestBlock"`
+	BaseFeePerGas     []string   `json:"baseFeePerGas"`
+	GasUsedRatio      []float64  `json:"gasUsedRatio"`
+	Reward            [][]string `json:"reward,omitempty"`
+	BaseFeePerBlobGas []string   `json:"baseFeePerBlobGas,omitempty"` // EIP-4844
+	BlobGasUsedRatio  []float64  `json:"blobGasUsedRatio,omitempty"`  // EIP-4844
 }
 
 // GetFeeHistory returns historical gas fee data for the given block range.
-// blockCount is the number of blocks to include (hex string or uint64 as string).
-// rewardPercentiles is an optional list of percentiles (0-100) for priority fee sampling.
 func (e *Eth) GetFeeHistory(ctx context.Context, blockCount uint64, newestBlock BlockParameter, rewardPercentiles []float64) (*FeeHistoryResult, error) {
 	if newestBlock == "" {
 		newestBlock = BlockLatest
 	}
-
-	params := []interface{}{ToHex(blockCount), newestBlock.String()}
-	if len(rewardPercentiles) > 0 {
-		params = append(params, rewardPercentiles)
-	} else {
-		params = append(params, []float64{})
+	percentiles := rewardPercentiles
+	if len(percentiles) == 0 {
+		percentiles = []float64{}
 	}
-
-	result, err := e.client.Call(ctx, EthFeeHistory.String(), params)
+	result, err := e.client.Call(ctx, EthFeeHistory.String(), []interface{}{ToHex(blockCount), newestBlock.String(), percentiles})
 	if err != nil {
 		return nil, err
 	}
-
 	var feeHistory FeeHistoryResult
 	if err := json.Unmarshal(result, &feeHistory); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal fee history: %w", err)
 	}
-
 	return &feeHistory, nil
 }
