@@ -1,4 +1,6 @@
 # Go-Web3
+[![Test](https://github.com/donghquinn/go-web3/actions/workflows/test.yml/badge.svg)](https://github.com/donghquinn/go-web3/actions/workflows/test.yml)
+[![codecov](https://codecov.io/gh/donghquinn/go-web3/branch/main/graph/badge.svg)](https://codecov.io/gh/donghquinn/go-web3)
 
 A comprehensive Go library for interacting with Ethereum blockchain through JSON-RPC APIs, designed with web3.js-like interface for familiar usage patterns.
 
