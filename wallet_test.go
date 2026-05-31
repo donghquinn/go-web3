@@ -2,42 +2,16 @@ package web3
 
 import (
 	"context"
-	"encoding/json"
 	"math/big"
-	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 )
-
-// walletMockServer routes RPC methods to responses for wallet tests.
-func walletMockServer(t *testing.T, handlers map[string]interface{}) *httptest.Server {
-	t.Helper()
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var req RPCRequest
-		json.NewDecoder(r.Body).Decode(&req)
-
-		result, ok := handlers[req.Method]
-		if !ok {
-			result = "0x0"
-		}
-
-		resultBytes, _ := json.Marshal(result)
-		resp := RPCResponse{
-			ID:     req.ID,
-			Result: json.RawMessage(resultBytes),
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
-	}))
-}
 
 const testPrivKeyHex = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 const testAddress = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
 
 func TestNewWallet(t *testing.T) {
-	c := NewClient("http://localhost:8545")
-	w, err := NewWallet(testPrivKeyHex, c)
+	w, err := NewWallet(testPrivKeyHex, NewClient("http://localhost:8545"))
 	if err != nil {
 		t.Fatalf("NewWallet() error = %v", err)
 	}
@@ -47,16 +21,14 @@ func TestNewWallet(t *testing.T) {
 }
 
 func TestNewWalletInvalidKey(t *testing.T) {
-	c := NewClient("http://localhost:8545")
-	_, err := NewWallet("0xinvalidkey", c)
+	_, err := NewWallet("0xinvalidkey", NewClient("http://localhost:8545"))
 	if err == nil {
 		t.Error("expected error for invalid private key")
 	}
 }
 
 func TestCreateWallet(t *testing.T) {
-	c := NewClient("http://localhost:8545")
-	w, err := CreateWallet(c)
+	w, err := CreateWallet(NewClient("http://localhost:8545"))
 	if err != nil {
 		t.Fatalf("CreateWallet() error = %v", err)
 	}
@@ -66,8 +38,7 @@ func TestCreateWallet(t *testing.T) {
 }
 
 func TestWalletGetPrivateKey(t *testing.T) {
-	c := NewClient("http://localhost:8545")
-	w, _ := NewWallet(testPrivKeyHex, c)
+	w, _ := NewWallet(testPrivKeyHex, NewClient("http://localhost:8545"))
 	key := w.GetPrivateKey()
 	if !strings.HasPrefix(key, "0x") {
 		t.Errorf("GetPrivateKey() = %q, want 0x prefix", key)
@@ -75,9 +46,7 @@ func TestWalletGetPrivateKey(t *testing.T) {
 }
 
 func TestWalletGetBalance(t *testing.T) {
-	srv := walletMockServer(t, map[string]interface{}{
-		"eth_getBalance": "0xde0b6b3a7640000", // 1 ETH
-	})
+	srv := newDispatchServer(map[string]interface{}{"eth_getBalance": "0xde0b6b3a7640000"})
 	defer srv.Close()
 
 	w, _ := NewWallet(testPrivKeyHex, NewClient(srv.URL))
@@ -92,9 +61,7 @@ func TestWalletGetBalance(t *testing.T) {
 }
 
 func TestWalletGetNonce(t *testing.T) {
-	srv := walletMockServer(t, map[string]interface{}{
-		"eth_getTransactionCount": "0x5",
-	})
+	srv := newDispatchServer(map[string]interface{}{"eth_getTransactionCount": "0x5"})
 	defer srv.Close()
 
 	w, _ := NewWallet(testPrivKeyHex, NewClient(srv.URL))
@@ -108,7 +75,7 @@ func TestWalletGetNonce(t *testing.T) {
 }
 
 func TestWalletSendTransaction(t *testing.T) {
-	srv := walletMockServer(t, map[string]interface{}{
+	srv := newDispatchServer(map[string]interface{}{
 		"eth_estimateGas":         "0x5208",
 		"eth_gasPrice":            "0x4a817c800",
 		"eth_getTransactionCount": "0x0",
@@ -133,7 +100,7 @@ func TestWalletSendTransaction(t *testing.T) {
 }
 
 func TestWalletSendTransactionWithPresetGas(t *testing.T) {
-	srv := walletMockServer(t, map[string]interface{}{
+	srv := newDispatchServer(map[string]interface{}{
 		"eth_gasPrice":            "0x4a817c800",
 		"eth_getTransactionCount": "0x1",
 		"eth_sendRawTransaction":  "0xtxhash2",
@@ -144,7 +111,7 @@ func TestWalletSendTransactionWithPresetGas(t *testing.T) {
 	result, err := w.SendTransaction(context.Background(), &TransferOptions{
 		To:       "0x742d35Cc6634C0532925a3b844Bc454e4438f44e",
 		Value:    big.NewInt(0),
-		GasLimit: 21000, // pre-set, skips estimation
+		GasLimit: 21000,
 	})
 	if err != nil {
 		t.Fatalf("SendTransaction() with preset gas error = %v", err)
@@ -155,7 +122,7 @@ func TestWalletSendTransactionWithPresetGas(t *testing.T) {
 }
 
 func TestWalletSendEther(t *testing.T) {
-	srv := walletMockServer(t, map[string]interface{}{
+	srv := newDispatchServer(map[string]interface{}{
 		"eth_estimateGas":         "0x5208",
 		"eth_gasPrice":            "0x4a817c800",
 		"eth_getTransactionCount": "0x0",
@@ -174,8 +141,7 @@ func TestWalletSendEther(t *testing.T) {
 }
 
 func TestWalletSendEtherInvalidAmount(t *testing.T) {
-	c := NewClient("http://localhost:8545")
-	w, _ := NewWallet(testPrivKeyHex, c)
+	w, _ := NewWallet(testPrivKeyHex, NewClient("http://localhost:8545"))
 	_, err := w.SendEther(context.Background(), "0x742d35Cc6634C0532925a3b844Bc454e4438f44e", "not-a-number")
 	if err == nil {
 		t.Error("expected error for invalid ether amount")
@@ -183,7 +149,7 @@ func TestWalletSendEtherInvalidAmount(t *testing.T) {
 }
 
 func TestWalletSendWei(t *testing.T) {
-	srv := walletMockServer(t, map[string]interface{}{
+	srv := newDispatchServer(map[string]interface{}{
 		"eth_estimateGas":         "0x5208",
 		"eth_gasPrice":            "0x4a817c800",
 		"eth_getTransactionCount": "0x0",
@@ -202,7 +168,7 @@ func TestWalletSendWei(t *testing.T) {
 }
 
 func TestWalletSendEIP1559Transaction(t *testing.T) {
-	srv := walletMockServer(t, map[string]interface{}{
+	srv := newDispatchServer(map[string]interface{}{
 		"eth_estimateGas":         "0x5208",
 		"eth_getTransactionCount": "0x0",
 		"eth_sendRawTransaction":  "0x1559hash",
@@ -228,7 +194,7 @@ func TestWalletSendEIP1559Transaction(t *testing.T) {
 }
 
 func TestWalletCallContract(t *testing.T) {
-	srv := walletMockServer(t, map[string]interface{}{
+	srv := newDispatchServer(map[string]interface{}{
 		"eth_call": "0x000000000000000000000000000000000000000000000000000000000000002a",
 	})
 	defer srv.Close()
@@ -244,7 +210,7 @@ func TestWalletCallContract(t *testing.T) {
 }
 
 func TestWalletSendContractTransaction(t *testing.T) {
-	srv := walletMockServer(t, map[string]interface{}{
+	srv := newDispatchServer(map[string]interface{}{
 		"eth_estimateGas":         "0x186a0",
 		"eth_gasPrice":            "0x4a817c800",
 		"eth_getTransactionCount": "0x0",
@@ -268,12 +234,8 @@ func TestWalletSendContractTransaction(t *testing.T) {
 }
 
 func TestWalletWaitForTransaction(t *testing.T) {
-	receipt := TransactionReceipt{
-		TransactionHash: "0xhash",
-		Status:          "0x1",
-	}
-	srv := walletMockServer(t, map[string]interface{}{
-		"eth_getTransactionReceipt": receipt,
+	srv := newDispatchServer(map[string]interface{}{
+		"eth_getTransactionReceipt": TransactionReceipt{TransactionHash: "0xhash", Status: "0x1"},
 	})
 	defer srv.Close()
 
@@ -288,16 +250,13 @@ func TestWalletWaitForTransaction(t *testing.T) {
 }
 
 func TestWalletWaitForTransactionContextCancel(t *testing.T) {
-	// Server that always returns null (no receipt yet)
-	srv := walletMockServer(t, map[string]interface{}{
-		"eth_getTransactionReceipt": nil,
-	})
+	srv := newDispatchServer(map[string]interface{}{"eth_getTransactionReceipt": nil})
 	defer srv.Close()
 
-	w, _ := NewWallet(testPrivKeyHex, NewClient(srv.URL))
 	ctx, cancel := context.WithCancel(context.Background())
-	cancel() // immediately cancel
+	cancel()
 
+	w, _ := NewWallet(testPrivKeyHex, NewClient(srv.URL))
 	_, err := w.WaitForTransaction(ctx, "0xhash")
 	if err == nil {
 		t.Error("expected context cancellation error")

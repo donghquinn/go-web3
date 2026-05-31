@@ -2,39 +2,14 @@ package web3
 
 import (
 	"context"
-	"encoding/json"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 )
-
-// dispatchMockServer routes different RPC methods to different result values.
-func dispatchMockServer(handlers map[string]interface{}) *httptest.Server {
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var req RPCRequest
-		json.NewDecoder(r.Body).Decode(&req)
-
-		result, ok := handlers[req.Method]
-		if !ok {
-			result = nil
-		}
-
-		resultBytes, _ := json.Marshal(result)
-		resp := RPCResponse{
-			ID:     req.ID,
-			Result: json.RawMessage(resultBytes),
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
-	}))
-}
 
 func TestGetBalance(t *testing.T) {
 	srv := newMockRPCServer("0xde0b6b3a7640000") // 1 ETH in wei
 	defer srv.Close()
 
-	eth := NewClient(srv.URL).Eth()
-	balance, err := eth.GetBalance(context.Background(), "0x742d35Cc6634C0532925a3b844Bc454e4438f44e", BlockLatest)
+	balance, err := NewClient(srv.URL).Eth().GetBalance(context.Background(), "0x742d35Cc6634C0532925a3b844Bc454e4438f44e", BlockLatest)
 	if err != nil {
 		t.Fatalf("GetBalance() error = %v", err)
 	}
@@ -48,9 +23,7 @@ func TestGetBalanceDefaultBlock(t *testing.T) {
 	srv := newMockRPCServer("0x0")
 	defer srv.Close()
 
-	eth := NewClient(srv.URL).Eth()
-	_, err := eth.GetBalance(context.Background(), "0x742d35Cc6634C0532925a3b844Bc454e4438f44e", "")
-	if err != nil {
+	if _, err := NewClient(srv.URL).Eth().GetBalance(context.Background(), "0x742d35Cc6634C0532925a3b844Bc454e4438f44e", ""); err != nil {
 		t.Fatalf("GetBalance() with empty block = %v", err)
 	}
 }
@@ -59,8 +32,7 @@ func TestGetBlockNumber(t *testing.T) {
 	srv := newMockRPCServer("0x100") // block 256
 	defer srv.Close()
 
-	eth := NewClient(srv.URL).Eth()
-	num, err := eth.GetBlockNumber(context.Background())
+	num, err := NewClient(srv.URL).Eth().GetBlockNumber(context.Background())
 	if err != nil {
 		t.Fatalf("GetBlockNumber() error = %v", err)
 	}
@@ -73,8 +45,7 @@ func TestGetGasPrice(t *testing.T) {
 	srv := newMockRPCServer("0x4a817c800") // 20 gwei
 	defer srv.Close()
 
-	eth := NewClient(srv.URL).Eth()
-	price, err := eth.GetGasPrice(context.Background())
+	price, err := NewClient(srv.URL).Eth().GetGasPrice(context.Background())
 	if err != nil {
 		t.Fatalf("GetGasPrice() error = %v", err)
 	}
@@ -88,8 +59,7 @@ func TestGetTransactionCount(t *testing.T) {
 	srv := newMockRPCServer("0x5") // nonce 5
 	defer srv.Close()
 
-	eth := NewClient(srv.URL).Eth()
-	count, err := eth.GetTransactionCount(context.Background(), "0x742d35Cc6634C0532925a3b844Bc454e4438f44e", BlockLatest)
+	count, err := NewClient(srv.URL).Eth().GetTransactionCount(context.Background(), "0x742d35Cc6634C0532925a3b844Bc454e4438f44e", BlockLatest)
 	if err != nil {
 		t.Fatalf("GetTransactionCount() error = %v", err)
 	}
@@ -102,8 +72,7 @@ func TestGetChainID(t *testing.T) {
 	srv := newMockRPCServer("0x1") // mainnet
 	defer srv.Close()
 
-	eth := NewClient(srv.URL).Eth()
-	chainID, err := eth.GetChainID(context.Background())
+	chainID, err := NewClient(srv.URL).Eth().GetChainID(context.Background())
 	if err != nil {
 		t.Fatalf("GetChainID() error = %v", err)
 	}
@@ -116,8 +85,7 @@ func TestGetNetVersion(t *testing.T) {
 	srv := newMockRPCServer("1")
 	defer srv.Close()
 
-	eth := NewClient(srv.URL).Eth()
-	ver, err := eth.GetNetVersion(context.Background())
+	ver, err := NewClient(srv.URL).Eth().GetNetVersion(context.Background())
 	if err != nil {
 		t.Fatalf("GetNetVersion() error = %v", err)
 	}
@@ -130,8 +98,7 @@ func TestGetClientVersion(t *testing.T) {
 	srv := newMockRPCServer("Geth/v1.11.0")
 	defer srv.Close()
 
-	eth := NewClient(srv.URL).Eth()
-	ver, err := eth.GetClientVersion(context.Background())
+	ver, err := NewClient(srv.URL).Eth().GetClientVersion(context.Background())
 	if err != nil {
 		t.Fatalf("GetClientVersion() error = %v", err)
 	}
@@ -144,8 +111,7 @@ func TestGetMaxPriorityFeePerGas(t *testing.T) {
 	srv := newMockRPCServer("0x77359400") // 2 gwei
 	defer srv.Close()
 
-	eth := NewClient(srv.URL).Eth()
-	fee, err := eth.GetMaxPriorityFeePerGas(context.Background())
+	fee, err := NewClient(srv.URL).Eth().GetMaxPriorityFeePerGas(context.Background())
 	if err != nil {
 		t.Fatalf("GetMaxPriorityFeePerGas() error = %v", err)
 	}
@@ -156,16 +122,10 @@ func TestGetMaxPriorityFeePerGas(t *testing.T) {
 }
 
 func TestGetBlockByNumber(t *testing.T) {
-	block := Block{
-		Number:       "0x1",
-		Hash:         "0xabc",
-		Transactions: []interface{}{},
-	}
-	srv := newMockRPCServer(block)
+	srv := newMockRPCServer(Block{Number: "0x1", Hash: "0xabc", Transactions: []interface{}{}})
 	defer srv.Close()
 
-	eth := NewClient(srv.URL).Eth()
-	b, err := eth.GetBlockByNumber(context.Background(), BlockLatest, false)
+	b, err := NewClient(srv.URL).Eth().GetBlockByNumber(context.Background(), BlockLatest, false)
 	if err != nil {
 		t.Fatalf("GetBlockByNumber() error = %v", err)
 	}
@@ -175,28 +135,19 @@ func TestGetBlockByNumber(t *testing.T) {
 }
 
 func TestGetBlockByNumberDefaultParam(t *testing.T) {
-	block := Block{Number: "0x1", Transactions: []interface{}{}}
-	srv := newMockRPCServer(block)
+	srv := newMockRPCServer(Block{Number: "0x1", Transactions: []interface{}{}})
 	defer srv.Close()
 
-	eth := NewClient(srv.URL).Eth()
-	_, err := eth.GetBlockByNumber(context.Background(), "", false)
-	if err != nil {
+	if _, err := NewClient(srv.URL).Eth().GetBlockByNumber(context.Background(), "", false); err != nil {
 		t.Fatalf("GetBlockByNumber() with empty block param error = %v", err)
 	}
 }
 
 func TestGetBlockByHash(t *testing.T) {
-	block := Block{
-		Hash:         "0xdeadbeef",
-		Number:       "0x5",
-		Transactions: []interface{}{},
-	}
-	srv := newMockRPCServer(block)
+	srv := newMockRPCServer(Block{Hash: "0xdeadbeef", Number: "0x5", Transactions: []interface{}{}})
 	defer srv.Close()
 
-	eth := NewClient(srv.URL).Eth()
-	b, err := eth.GetBlockByHash(context.Background(), "0xdeadbeef", false)
+	b, err := NewClient(srv.URL).Eth().GetBlockByHash(context.Background(), "0xdeadbeef", false)
 	if err != nil {
 		t.Fatalf("GetBlockByHash() error = %v", err)
 	}
@@ -206,42 +157,28 @@ func TestGetBlockByHash(t *testing.T) {
 }
 
 func TestGetTransactionByHash(t *testing.T) {
-	tx := Transaction{
-		Hash:  "0xabc123",
-		From:  "0x1234",
-		To:    "0x5678",
-		Value: "0x0",
-	}
-	srv := newMockRPCServer(tx)
+	srv := newMockRPCServer(Transaction{Hash: "0xabc123", From: "0x1234", To: "0x5678", Value: "0x0"})
 	defer srv.Close()
 
-	eth := NewClient(srv.URL).Eth()
-	got, err := eth.GetTransactionByHash(context.Background(), "0xabc123")
+	tx, err := NewClient(srv.URL).Eth().GetTransactionByHash(context.Background(), "0xabc123")
 	if err != nil {
 		t.Fatalf("GetTransactionByHash() error = %v", err)
 	}
-	if got.Hash != "0xabc123" {
-		t.Errorf("GetTransactionByHash() Hash = %q", got.Hash)
+	if tx.Hash != "0xabc123" {
+		t.Errorf("GetTransactionByHash() Hash = %q", tx.Hash)
 	}
 }
 
 func TestGetTransactionReceipt(t *testing.T) {
-	receipt := TransactionReceipt{
-		TransactionHash: "0xabc123",
-		Status:          "0x1",
-		BlockNumber:     "0xa",
-		GasUsed:         "0x5208",
-	}
-	srv := newMockRPCServer(receipt)
+	srv := newMockRPCServer(TransactionReceipt{TransactionHash: "0xabc123", Status: "0x1", BlockNumber: "0xa", GasUsed: "0x5208"})
 	defer srv.Close()
 
-	eth := NewClient(srv.URL).Eth()
-	got, err := eth.GetTransactionReceipt(context.Background(), "0xabc123")
+	receipt, err := NewClient(srv.URL).Eth().GetTransactionReceipt(context.Background(), "0xabc123")
 	if err != nil {
 		t.Fatalf("GetTransactionReceipt() error = %v", err)
 	}
-	if got.Status != "0x1" {
-		t.Errorf("GetTransactionReceipt() Status = %q, want %q", got.Status, "0x1")
+	if receipt.Status != "0x1" {
+		t.Errorf("GetTransactionReceipt() Status = %q, want %q", receipt.Status, "0x1")
 	}
 }
 
@@ -249,8 +186,7 @@ func TestSendRawTransaction(t *testing.T) {
 	srv := newMockRPCServer("0xhash123")
 	defer srv.Close()
 
-	eth := NewClient(srv.URL).Eth()
-	hash, err := eth.SendRawTransaction(context.Background(), "0xrawdata")
+	hash, err := NewClient(srv.URL).Eth().SendRawTransaction(context.Background(), "0xrawdata")
 	if err != nil {
 		t.Fatalf("SendRawTransaction() error = %v", err)
 	}
@@ -263,8 +199,7 @@ func TestEstimateGas(t *testing.T) {
 	srv := newMockRPCServer("0x5208") // 21000
 	defer srv.Close()
 
-	eth := NewClient(srv.URL).Eth()
-	gas, err := eth.EstimateGas(context.Background(), map[string]interface{}{
+	gas, err := NewClient(srv.URL).Eth().EstimateGas(context.Background(), map[string]interface{}{
 		"to":    "0x742d35Cc6634C0532925a3b844Bc454e4438f44e",
 		"value": "0x0",
 	})
@@ -280,8 +215,7 @@ func TestCall(t *testing.T) {
 	srv := newMockRPCServer("0x000000000000000000000000000000000000000000000000000000000000002a")
 	defer srv.Close()
 
-	eth := NewClient(srv.URL).Eth()
-	result, err := eth.Call(context.Background(), map[string]interface{}{
+	result, err := NewClient(srv.URL).Eth().Call(context.Background(), map[string]interface{}{
 		"to":   "0x742d35Cc6634C0532925a3b844Bc454e4438f44e",
 		"data": "0x70a08231",
 	}, BlockLatest)
@@ -297,9 +231,7 @@ func TestCallDefaultBlock(t *testing.T) {
 	srv := newMockRPCServer("0x0")
 	defer srv.Close()
 
-	eth := NewClient(srv.URL).Eth()
-	_, err := eth.Call(context.Background(), map[string]interface{}{"to": "0x1"}, "")
-	if err != nil {
+	if _, err := NewClient(srv.URL).Eth().Call(context.Background(), map[string]interface{}{"to": "0x1"}, ""); err != nil {
 		t.Fatalf("Call() with empty block error = %v", err)
 	}
 }
@@ -308,8 +240,7 @@ func TestGetStorageAt(t *testing.T) {
 	srv := newMockRPCServer("0x000000000000000000000000000000000000000000000000000000000000002a")
 	defer srv.Close()
 
-	eth := NewClient(srv.URL).Eth()
-	val, err := eth.GetStorageAt(context.Background(), "0x742d35Cc6634C0532925a3b844Bc454e4438f44e", "0x0", BlockLatest)
+	val, err := NewClient(srv.URL).Eth().GetStorageAt(context.Background(), "0x742d35Cc6634C0532925a3b844Bc454e4438f44e", "0x0", BlockLatest)
 	if err != nil {
 		t.Fatalf("GetStorageAt() error = %v", err)
 	}
@@ -322,9 +253,7 @@ func TestGetStorageAtDefaultBlock(t *testing.T) {
 	srv := newMockRPCServer("0x0")
 	defer srv.Close()
 
-	eth := NewClient(srv.URL).Eth()
-	_, err := eth.GetStorageAt(context.Background(), "0x1", "0x0", "")
-	if err != nil {
+	if _, err := NewClient(srv.URL).Eth().GetStorageAt(context.Background(), "0x1", "0x0", ""); err != nil {
 		t.Fatalf("GetStorageAt() with empty block = %v", err)
 	}
 }
@@ -333,8 +262,7 @@ func TestGetCode(t *testing.T) {
 	srv := newMockRPCServer("0x6080604052")
 	defer srv.Close()
 
-	eth := NewClient(srv.URL).Eth()
-	code, err := eth.GetCode(context.Background(), "0x742d35Cc6634C0532925a3b844Bc454e4438f44e", BlockLatest)
+	code, err := NewClient(srv.URL).Eth().GetCode(context.Background(), "0x742d35Cc6634C0532925a3b844Bc454e4438f44e", BlockLatest)
 	if err != nil {
 		t.Fatalf("GetCode() error = %v", err)
 	}
@@ -344,21 +272,11 @@ func TestGetCode(t *testing.T) {
 }
 
 func TestGetLogs(t *testing.T) {
-	logs := []*Log{
-		{
-			Address:         "0xabc",
-			TransactionHash: "0xdef",
-			BlockNumber:     "0x1",
-		},
-	}
+	logs := []*Log{{Address: "0xabc", TransactionHash: "0xdef", BlockNumber: "0x1"}}
 	srv := newMockRPCServer(logs)
 	defer srv.Close()
 
-	eth := NewClient(srv.URL).Eth()
-	got, err := eth.GetLogs(context.Background(), LogFilter{
-		FromBlock: BlockLatest,
-		ToBlock:   BlockLatest,
-	})
+	got, err := NewClient(srv.URL).Eth().GetLogs(context.Background(), LogFilter{FromBlock: BlockLatest, ToBlock: BlockLatest})
 	if err != nil {
 		t.Fatalf("GetLogs() error = %v", err)
 	}
@@ -368,16 +286,14 @@ func TestGetLogs(t *testing.T) {
 }
 
 func TestGetFeeHistory(t *testing.T) {
-	feeHistory := FeeHistoryResult{
+	srv := newMockRPCServer(FeeHistoryResult{
 		OldestBlock:   "0x1",
 		BaseFeePerGas: []string{"0x4a817c800"},
 		GasUsedRatio:  []float64{0.5},
-	}
-	srv := newMockRPCServer(feeHistory)
+	})
 	defer srv.Close()
 
-	eth := NewClient(srv.URL).Eth()
-	got, err := eth.GetFeeHistory(context.Background(), 1, BlockLatest, []float64{25, 50, 75})
+	got, err := NewClient(srv.URL).Eth().GetFeeHistory(context.Background(), 1, BlockLatest, []float64{25, 50, 75})
 	if err != nil {
 		t.Fatalf("GetFeeHistory() error = %v", err)
 	}
@@ -387,13 +303,10 @@ func TestGetFeeHistory(t *testing.T) {
 }
 
 func TestGetFeeHistoryDefaultBlock(t *testing.T) {
-	feeHistory := FeeHistoryResult{OldestBlock: "0x1"}
-	srv := newMockRPCServer(feeHistory)
+	srv := newMockRPCServer(FeeHistoryResult{OldestBlock: "0x1"})
 	defer srv.Close()
 
-	eth := NewClient(srv.URL).Eth()
-	_, err := eth.GetFeeHistory(context.Background(), 1, "", nil)
-	if err != nil {
+	if _, err := NewClient(srv.URL).Eth().GetFeeHistory(context.Background(), 1, "", nil); err != nil {
 		t.Fatalf("GetFeeHistory() with empty block = %v", err)
 	}
 }
@@ -403,23 +316,13 @@ func TestGetPendingTransactions(t *testing.T) {
 		"number": "pending",
 		"hash":   "0x0",
 		"transactions": []interface{}{
-			map[string]interface{}{
-				"hash":     "0xpending1",
-				"from":     "0xsender",
-				"to":       "0xrecipient",
-				"value":    "0x0",
-				"gas":      "0x5208",
-				"gasPrice": "0x4a817c800",
-				"nonce":    "0x1",
-				"input":    "0x",
-			},
+			map[string]interface{}{"hash": "0xpending1", "from": "0xsender", "to": "0xrecipient", "value": "0x0", "gas": "0x5208", "gasPrice": "0x4a817c800", "nonce": "0x1", "input": "0x"},
 		},
 	}
 	srv := newMockRPCServer(block)
 	defer srv.Close()
 
-	eth := NewClient(srv.URL).Eth()
-	txs, err := eth.GetPendingTransactions(context.Background())
+	txs, err := NewClient(srv.URL).Eth().GetPendingTransactions(context.Background())
 	if err != nil {
 		t.Fatalf("GetPendingTransactions() error = %v", err)
 	}
@@ -432,16 +335,10 @@ func TestGetPendingTransactions(t *testing.T) {
 }
 
 func TestGetPendingTransactionCount(t *testing.T) {
-	block := map[string]interface{}{
-		"number":       "pending",
-		"hash":         "0x0",
-		"transactions": []interface{}{},
-	}
-	srv := newMockRPCServer(block)
+	srv := newMockRPCServer(map[string]interface{}{"number": "pending", "hash": "0x0", "transactions": []interface{}{}})
 	defer srv.Close()
 
-	eth := NewClient(srv.URL).Eth()
-	count, err := eth.GetPendingTransactionCount(context.Background())
+	count, err := NewClient(srv.URL).Eth().GetPendingTransactionCount(context.Background())
 	if err != nil {
 		t.Fatalf("GetPendingTransactionCount() error = %v", err)
 	}
@@ -456,25 +353,14 @@ func TestGetAccountPendingTransactions(t *testing.T) {
 		"number": "pending",
 		"hash":   "0x0",
 		"transactions": []interface{}{
-			map[string]interface{}{
-				"hash":  "0xtx1",
-				"from":  addr,
-				"to":    "0xother",
-				"value": "0x0",
-			},
-			map[string]interface{}{
-				"hash":  "0xtx2",
-				"from":  "0xother",
-				"to":    "0xunrelated",
-				"value": "0x0",
-			},
+			map[string]interface{}{"hash": "0xtx1", "from": addr, "to": "0xother", "value": "0x0"},
+			map[string]interface{}{"hash": "0xtx2", "from": "0xother", "to": "0xunrelated", "value": "0x0"},
 		},
 	}
 	srv := newMockRPCServer(block)
 	defer srv.Close()
 
-	eth := NewClient(srv.URL).Eth()
-	txs, err := eth.GetAccountPendingTransactions(context.Background(), addr)
+	txs, err := NewClient(srv.URL).Eth().GetAccountPendingTransactions(context.Background(), addr)
 	if err != nil {
 		t.Fatalf("GetAccountPendingTransactions() error = %v", err)
 	}
@@ -485,21 +371,15 @@ func TestGetAccountPendingTransactions(t *testing.T) {
 
 func TestIsPendingTransaction(t *testing.T) {
 	block := map[string]interface{}{
-		"number": "pending",
-		"hash":   "0x0",
-		"transactions": []interface{}{
-			map[string]interface{}{
-				"hash":  "0xtarget",
-				"from":  "0xa",
-				"to":    "0xb",
-				"value": "0x0",
-			},
-		},
+		"number":       "pending",
+		"hash":         "0x0",
+		"transactions": []interface{}{map[string]interface{}{"hash": "0xtarget", "from": "0xa", "to": "0xb", "value": "0x0"}},
 	}
 	srv := newMockRPCServer(block)
 	defer srv.Close()
 
 	eth := NewClient(srv.URL).Eth()
+
 	isPending, err := eth.IsPendingTransaction(context.Background(), "0xtarget")
 	if err != nil {
 		t.Fatalf("IsPendingTransaction() error = %v", err)
