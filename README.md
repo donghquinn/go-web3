@@ -9,7 +9,8 @@ A comprehensive Go library for interacting with the Ethereum blockchain through 
 - **Complete Ethereum JSON-RPC**: All major `eth_*`, `net_*`, and `web3_*` methods
 - **EIP-1559 Support**: Fee history, max priority fee, and type-2 transaction signing
 - **EIP-4844 Awareness**: Blob gas fields included in fee history responses
-- **Event Log Queries**: Filter contract events with `eth_getLogs`
+- **Event Log Queries**: Filter contract events with `eth_getLogs` and poll installed filters (`eth_newFilter`, `eth_getFilterChanges`)
+- **Proofs & Access Lists**: `eth_getProof` (EIP-1186) and `eth_createAccessList` (EIP-2930)
 - **Contract Inspection**: Read bytecode and storage slots at any block
 - **Pending Transaction Support**: Monitor mempool and get pending transactions by account
 - **Context-Aware Operations**: Proper context handling for timeouts and cancellation
@@ -228,6 +229,93 @@ netVersion, err := client.Eth().GetNetVersion(ctx)
 
 clientVersion, err := client.Eth().GetClientVersion(ctx)
 fmt.Printf("Client: %s\n", clientVersion) // e.g. "Geth/v1.13.0/..."
+```
+
+```go
+// Node status (web3.eth.net / web3.eth.isSyncing ...)
+listening, err := client.Eth().IsListening(ctx)
+peers, err := client.Eth().GetPeerCount(ctx)
+protocol, err := client.Eth().GetProtocolVersion(ctx)
+
+status, err := client.Eth().IsSyncing(ctx) // nil when fully synced
+if status != nil {
+    fmt.Printf("Syncing %s / %s\n", status.CurrentBlock, status.HighestBlock)
+}
+
+coinbase, err := client.Eth().GetCoinbase(ctx)
+mining, err := client.Eth().IsMining(ctx)
+hashRate, err := client.Eth().GetHashRate(ctx)
+accounts, err := client.Eth().GetAccounts(ctx) // node-managed accounts
+
+blobFee, err := client.Eth().GetBlobBaseFee(ctx) // EIP-4844
+hash, err := client.Eth().Sha3(ctx, "0x68656c6c6f") // web3_sha3
+```
+
+### Block Contents & Uncles
+
+Lookups that can miss (`...AndIndex`, `GetBlockReceipts`) return `nil, nil` when the node answers `null`.
+
+```go
+txCount, err := client.Eth().GetBlockTransactionCountByNumber(ctx, web3.BlockLatest)
+txCount, err = client.Eth().GetBlockTransactionCountByHash(ctx, "0xBLOCK")
+
+// web3.eth.getTransactionFromBlock
+tx, err := client.Eth().GetTransactionByBlockNumberAndIndex(ctx, web3.BlockLatest, 0)
+tx, err = client.Eth().GetTransactionByBlockHashAndIndex(ctx, "0xBLOCK", 0)
+
+uncles, err := client.Eth().GetUncleCountByBlockNumber(ctx, web3.BlockNumber(12000000))
+uncle, err := client.Eth().GetUncleByBlockNumberAndIndex(ctx, web3.BlockNumber(12000000), 0)
+
+// All receipts of a block (by tag, number, or web3.BlockParameter("0xBLOCKHASH"))
+receipts, err := client.Eth().GetBlockReceipts(ctx, web3.BlockLatest)
+```
+
+### Proofs & Access Lists
+
+```go
+// EIP-1186 Merkle proof of an account and storage slots
+proof, err := client.Eth().GetProof(ctx, "0xCONTRACT", []string{"0x0"}, web3.BlockLatest)
+
+// EIP-2930 access list for a call
+al, err := client.Eth().CreateAccessList(ctx, map[string]interface{}{
+    "from": "0xSENDER",
+    "to":   "0xCONTRACT",
+    "data": "0x...",
+}, web3.BlockLatest)
+fmt.Printf("Gas used: %s, entries: %d\n", al.GasUsed, len(al.AccessList))
+```
+
+### Filters
+
+```go
+// Log filter
+id, err := client.Eth().NewFilter(ctx, web3.LogFilter{Address: "0xCONTRACT"})
+logs, err := client.Eth().GetFilterLogChanges(ctx, id) // new logs since last poll
+all, err := client.Eth().GetFilterLogs(ctx, id)        // all matching logs
+
+// New block / pending transaction hashes
+blockFilter, err := client.Eth().NewBlockFilter(ctx)
+pendingFilter, err := client.Eth().NewPendingTransactionFilter(ctx)
+hashes, err := client.Eth().GetFilterHashChanges(ctx, blockFilter)
+
+ok, err := client.Eth().UninstallFilter(ctx, id)
+```
+
+### Node-Managed Accounts
+
+These sign with keys held by the node (e.g. a dev node). For local private keys, use `Wallet`.
+
+```go
+sig, err := client.Eth().Sign(ctx, "0xACCOUNT", "0xdeadbeef")
+
+signed, err := client.Eth().SignTransaction(ctx, map[string]interface{}{
+    "from": "0xACCOUNT", "to": "0xRECIPIENT", "value": "0x1",
+})
+fmt.Println(signed.Raw)
+
+txHash, err := client.Eth().SendTransaction(ctx, map[string]interface{}{
+    "from": "0xACCOUNT", "to": "0xRECIPIENT", "value": "0x1",
+})
 ```
 
 ---

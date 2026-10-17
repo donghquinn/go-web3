@@ -50,3 +50,13 @@ func respond(w http.ResponseWriter, id uint64, result interface{}) {
 		Result: json.RawMessage(resultBytes),
 	})
 }
+
+// newCaptureServer responds to every RPC call with result and records the last request into *got.
+func newCaptureServer(result interface{}, got *RPCRequest) *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req RPCRequest
+		json.NewDecoder(r.Body).Decode(&req)
+		*got = req
+		respond(w, req.ID, result)
+	}))
+}
