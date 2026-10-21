@@ -191,6 +191,40 @@ const (
 	EthFeeHistory              RPCMethod = "eth_feeHistory"
 )
 
+// Additional RPC method names (web3.eth / web3.eth.net / web3.utils parity)
+const (
+	EthGetBlockTransactionCountByNumber    RPCMethod = "eth_getBlockTransactionCountByNumber"
+	EthGetBlockTransactionCountByHash      RPCMethod = "eth_getBlockTransactionCountByHash"
+	EthGetUncleCountByBlockNumber          RPCMethod = "eth_getUncleCountByBlockNumber"
+	EthGetUncleCountByBlockHash            RPCMethod = "eth_getUncleCountByBlockHash"
+	EthGetUncleByBlockNumberAndIndex       RPCMethod = "eth_getUncleByBlockNumberAndIndex"
+	EthGetUncleByBlockHashAndIndex         RPCMethod = "eth_getUncleByBlockHashAndIndex"
+	EthGetTransactionByBlockNumberAndIndex RPCMethod = "eth_getTransactionByBlockNumberAndIndex"
+	EthGetTransactionByBlockHashAndIndex   RPCMethod = "eth_getTransactionByBlockHashAndIndex"
+	EthGetBlockReceipts                    RPCMethod = "eth_getBlockReceipts"
+	EthSyncing                             RPCMethod = "eth_syncing"
+	EthCoinbase                            RPCMethod = "eth_coinbase"
+	EthMining                              RPCMethod = "eth_mining"
+	EthHashrate                            RPCMethod = "eth_hashrate"
+	EthAccounts                            RPCMethod = "eth_accounts"
+	EthProtocolVersion                     RPCMethod = "eth_protocolVersion"
+	EthBlobBaseFee                         RPCMethod = "eth_blobBaseFee"
+	EthGetProof                            RPCMethod = "eth_getProof"
+	EthCreateAccessList                    RPCMethod = "eth_createAccessList"
+	EthSign                                RPCMethod = "eth_sign"
+	EthSignTransaction                     RPCMethod = "eth_signTransaction"
+	EthSendTransaction                     RPCMethod = "eth_sendTransaction"
+	EthNewFilter                           RPCMethod = "eth_newFilter"
+	EthNewBlockFilter                      RPCMethod = "eth_newBlockFilter"
+	EthNewPendingTransactionFilter         RPCMethod = "eth_newPendingTransactionFilter"
+	EthGetFilterChanges                    RPCMethod = "eth_getFilterChanges"
+	EthGetFilterLogs                       RPCMethod = "eth_getFilterLogs"
+	EthUninstallFilter                     RPCMethod = "eth_uninstallFilter"
+	NetListening                           RPCMethod = "net_listening"
+	NetPeerCount                           RPCMethod = "net_peerCount"
+	Web3Sha3                               RPCMethod = "web3_sha3"
+)
+
 func (rm RPCMethod) String() string {
 	return string(rm)
 }

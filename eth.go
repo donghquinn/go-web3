@@ -21,8 +21,13 @@ func parseHexBigInt(result json.RawMessage, field string) (*big.Int, error) {
 	if err := json.Unmarshal(result, &hexValue); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal %s: %w", field, err)
 	}
-	val := new(big.Int)
-	val.SetString(hexValue[2:], 16)
+	if len(hexValue) < 3 || (hexValue[:2] != "0x" && hexValue[:2] != "0X") {
+		return nil, fmt.Errorf("invalid hex %s: %q", field, hexValue)
+	}
+	val, ok := new(big.Int).SetString(hexValue[2:], 16)
+	if !ok {
+		return nil, fmt.Errorf("invalid hex %s: %q", field, hexValue)
+	}
 	return val, nil
 }
 
@@ -102,6 +107,24 @@ type Block struct {
 	Timestamp        string        `json:"timestamp"`
 	Transactions     []interface{} `json:"transactions"`
 	Uncles           []string      `json:"uncles"`
+
+	// Post-London / Shanghai / Cancun / Prague fields; empty on chains that predate them.
+	MixHash               string        `json:"mixHash,omitempty"`
+	BaseFeePerGas         string        `json:"baseFeePerGas,omitempty"`
+	WithdrawalsRoot       string        `json:"withdrawalsRoot,omitempty"`
+	Withdrawals           []*Withdrawal `json:"withdrawals,omitempty"`
+	BlobGasUsed           string        `json:"blobGasUsed,omitempty"`
+	ExcessBlobGas         string        `json:"excessBlobGas,omitempty"`
+	ParentBeaconBlockRoot string        `json:"parentBeaconBlockRoot,omitempty"`
+	RequestsHash          string        `json:"requestsHash,omitempty"`
+}
+
+// Withdrawal is a validator withdrawal included in a block (EIP-4895).
+type Withdrawal struct {
+	Index          string `json:"index"`
+	ValidatorIndex string `json:"validatorIndex"`
+	Address        string `json:"address"`
+	Amount         string `json:"amount"`
 }
 
 func (e *Eth) GetBlockByNumber(ctx context.Context, blockNumber BlockParameter, fullTransactions bool) (*Block, error) {
@@ -143,6 +166,25 @@ type Transaction struct {
 	Gas              string `json:"gas"`
 	GasPrice         string `json:"gasPrice"`
 	Input            string `json:"input"`
+
+	// Typed-transaction fields (EIP-2718 / 2930 / 1559 / 4844); empty for legacy transactions.
+	Type                 string        `json:"type,omitempty"`
+	ChainID              string        `json:"chainId,omitempty"`
+	MaxFeePerGas         string        `json:"maxFeePerGas,omitempty"`
+	MaxPriorityFeePerGas string        `json:"maxPriorityFeePerGas,omitempty"`
+	MaxFeePerBlobGas     string        `json:"maxFeePerBlobGas,omitempty"`
+	BlobVersionedHashes  []string      `json:"blobVersionedHashes,omitempty"`
+	AccessList           []AccessTuple `json:"accessList,omitempty"`
+	V                    string        `json:"v,omitempty"`
+	R                    string        `json:"r,omitempty"`
+	S                    string        `json:"s,omitempty"`
+	YParity              string        `json:"yParity,omitempty"`
+}
+
+// AccessTuple is a single entry of an EIP-2930 access list.
+type AccessTuple struct {
+	Address     string   `json:"address"`
+	StorageKeys []string `json:"storageKeys"`
 }
 
 func (e *Eth) GetTransactionByHash(ctx context.Context, txHash string) (*Transaction, error) {
@@ -168,6 +210,14 @@ type TransactionReceipt struct {
 	GasUsed           string `json:"gasUsed"`
 	ContractAddress   string `json:"contractAddress"`
 	Status            string `json:"status"`
+
+	Logs              []*Log `json:"logs,omitempty"`
+	LogsBloom         string `json:"logsBloom,omitempty"`
+	Type              string `json:"type,omitempty"`
+	EffectiveGasPrice string `json:"effectiveGasPrice,omitempty"`
+	BlobGasUsed       string `json:"blobGasUsed,omitempty"`
+	BlobGasPrice      string `json:"blobGasPrice,omitempty"`
+	Root              string `json:"root,omitempty"` // pre-Byzantium state root
 }
 
 func (e *Eth) GetTransactionReceipt(ctx context.Context, txHash string) (*TransactionReceipt, error) {
@@ -219,29 +269,18 @@ func (e *Eth) GetPendingTransactions(ctx context.Context) ([]*Transaction, error
 }
 
 // txsFromBlock converts the untyped transaction slice from a block into []*Transaction.
+// Hash-only entries (blocks fetched without full transactions) are skipped.
 func txsFromBlock(block *Block) []*Transaction {
 	var txs []*Transaction
 	for _, raw := range block.Transactions {
-		txData, ok := raw.(map[string]interface{})
-		if !ok {
+		if _, ok := raw.(map[string]interface{}); !ok {
 			continue
 		}
+		data, _ := json.Marshal(raw) // values decoded from JSON always re-marshal
 		tx := &Transaction{}
-		strField := func(key string) string {
-			v, _ := txData[key].(string)
-			return v
+		if err := json.Unmarshal(data, tx); err != nil {
+			continue
 		}
-		tx.Hash = strField("hash")
-		tx.Nonce = strField("nonce")
-		tx.BlockHash = strField("blockHash")
-		tx.BlockNumber = strField("blockNumber")
-		tx.TransactionIndex = strField("transactionIndex")
-		tx.From = strField("from")
-		tx.To = strField("to")
-		tx.Value = strField("value")
-		tx.Gas = strField("gas")
-		tx.GasPrice = strField("gasPrice")
-		tx.Input = strField("input")
 		txs = append(txs, tx)
 	}
 	return txs
